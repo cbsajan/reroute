@@ -1,0 +1,38 @@
+"""
+{{ project_name }} Configuration
+
+Application-specific configuration settings.
+"""
+
+from reroute import Config
+
+
+class AppConfig(Config):
+    """Application configuration"""
+
+    # Server Configuration
+    HOST = "{{ host }}"
+    PORT = {{ port }}
+
+    # Framework Behavior
+    VERBOSE_LOGGING = False  # Disable route registration logs
+    AUTO_RELOAD = {{ reload }}
+
+    # API Base Path Configuration
+    # Uncomment and set to prefix all routes (e.g., "/api/v1")
+    # API_BASE_PATH = "/api/v1"  # All routes will be under /api/v1/*
+    API_BASE_PATH = ""  # No prefix (default)
+
+    # CORS Configuration (applied globally)
+    ENABLE_CORS = True
+    CORS_ALLOW_ORIGINS = ["*"]  # Change to specific origins in production
+    CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    CORS_ALLOW_HEADERS = ["*"]
+    CORS_ALLOW_CREDENTIALS = False
+
+    # Routing Configuration (inherited from Config)
+    # ROUTES_DIR_NAME = "routes"
+
+    # You can override any Config settings here
+    # For example:
+    # SUPPORTED_HTTP_METHODS = ["get", "post", "put", "delete"]

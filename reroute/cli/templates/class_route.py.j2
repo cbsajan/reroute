@@ -1,0 +1,109 @@
+"""
+{{ route_name }} Route
+
+This route handles {{ route_path }} endpoints.
+"""
+
+from reroute import RouteBase, rate_limit, cache
+# noinspection PyUnresolvedReferences
+from logger import get_logger
+
+# Initialize logger for this module
+logger = get_logger(__name__)
+
+
+class {{ class_name }}(RouteBase):
+    """
+    {{ class_name }} handles {{ route_path }} endpoints.
+
+    Available methods:
+    - GET: Retrieve {{ resource_name }}
+    - POST: Create new {{ resource_name }}
+    - PUT: Update {{ resource_name }}
+    - DELETE: Delete {{ resource_name }}
+    """
+
+    # Swagger category/tag (optional - defaults to folder name)
+    tag = "{{ route_name }}"
+
+    def __init__(self):
+        super().__init__()
+        # Initialize your data, database connections, etc.
+        self.data = []
+
+    def before_request(self):
+        """
+        Hook that runs before every request.
+
+        Use this for:
+        - Authentication checks
+        - Request validation
+        - Logging
+
+        Return a dict to short-circuit and return that response.
+        Return None to continue to the handler.
+        """
+        pass
+
+    @cache(duration=60)  # Cache for 60 seconds
+    def get(self):
+        """Handle GET requests - retrieve {{ resource_name }}"""
+        logger.info(f"GET request to {{ route_path }}")
+        return {
+            "message": "GET {{ route_path }}",
+            "data": self.data
+        }
+
+    @rate_limit("10/min")  # Max 10 requests per minute
+    def post(self):
+        """Handle POST requests - create new {{ resource_name }}"""
+        # TODO: Implement POST logic
+        return {
+            "message": "POST {{ route_path }}",
+            "status": "created"
+        }
+
+    def put(self):
+        """Handle PUT requests - update {{ resource_name }}"""
+        # TODO: Implement PUT logic
+        return {
+            "message": "PUT {{ route_path }}",
+            "status": "updated"
+        }
+
+    def delete(self):
+        """Handle DELETE requests - delete {{ resource_name }}"""
+        # TODO: Implement DELETE logic
+        return {
+            "message": "DELETE {{ route_path }}",
+            "status": "deleted"
+        }
+
+    def after_request(self, response):
+        """
+        Hook that runs after every successful request.
+
+        Args:
+            response: The response dict from the handler
+
+        Returns:
+            Modified response dict
+        """
+        # Add custom headers, modify response, etc.
+        return response
+
+    def on_error(self, error: Exception):
+        """
+        Hook that runs when an error occurs.
+
+        Args:
+            error: The exception that occurred
+
+        Returns:
+            Error response dict
+        """
+        return {
+            "error": str(error),
+            "type": type(error).__name__,
+            "route": "{{ route_path }}"
+        }

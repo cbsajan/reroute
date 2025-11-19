@@ -1,0 +1,196 @@
+"""
+{{ route_name }} CRUD Route
+
+Full CRUD implementation for {{ resource_name }}.
+"""
+
+from reroute import RouteBase
+from typing import List, Dict, Any, Optional
+
+
+class {{ class_name }}(RouteBase):
+    """
+    CRUD operations for {{ resource_name }}.
+
+    Endpoints:
+    - GET    {{ route_path }}        - List all {{ resource_name }}
+    - GET    {{ route_path }}/:id    - Get single {{ resource_name }}
+    - POST   {{ route_path }}        - Create new {{ resource_name }}
+    - PUT    {{ route_path }}/:id    - Update {{ resource_name }}
+    - DELETE {{ route_path }}/:id    - Delete {{ resource_name }}
+    """
+
+    def __init__(self):
+        super().__init__()
+        # In-memory database (replace with actual database)
+        self.items: List[Dict[str, Any]] = []
+        self.next_id = 1
+
+    def before_request(self):
+        """
+        Authentication and validation hook.
+
+        Add your authentication logic here:
+        - Check API keys
+        - Validate JWT tokens
+        - Check permissions
+        """
+        # Example: Add authentication check
+        # if not request.headers.get('Authorization'):
+        #     return {"error": "Unauthorized"}, 401
+        pass
+
+    def get(self, id: Optional[int] = None):
+        """
+        GET handler - Retrieve {{ resource_name }}.
+
+        Args:
+            id: Optional ID to get single item
+
+        Returns:
+            Single item or list of all items
+        """
+        if id is not None:
+            # Get single item
+            item = self._find_by_id(id)
+            if not item:
+                return {
+                    "error": "{{ resource_name }} not found",
+                    "id": id
+                }, 404
+            return {
+                "data": item,
+                "message": "{{ resource_name }} retrieved successfully"
+            }
+
+        # Get all items
+        return {
+            "data": self.items,
+            "count": len(self.items),
+            "message": "{{ resource_name }} list retrieved successfully"
+        }
+
+    def post(self, data: Dict[str, Any]):
+        """
+        POST handler - Create new {{ resource_name }}.
+
+        Args:
+            data: Request body data
+
+        Returns:
+            Created item with status
+        """
+        # Validate required fields
+        required_fields = ["name"]  # TODO: Update with actual fields
+        for field in required_fields:
+            if field not in data:
+                return {
+                    "error": f"Missing required field: {field}",
+                    "required": required_fields
+                }, 400
+
+        # Create new item
+        new_item = {
+            "id": self.next_id,
+            **data
+        }
+        self.items.append(new_item)
+        self.next_id += 1
+
+        return {
+            "data": new_item,
+            "message": "{{ resource_name }} created successfully"
+        }, 201
+
+    def put(self, id: int, data: Dict[str, Any]):
+        """
+        PUT handler - Update existing {{ resource_name }}.
+
+        Args:
+            id: ID of item to update
+            data: Update data
+
+        Returns:
+            Updated item
+        """
+        item = self._find_by_id(id)
+        if not item:
+            return {
+                "error": "{{ resource_name }} not found",
+                "id": id
+            }, 404
+
+        # Update item
+        item.update(data)
+
+        return {
+            "data": item,
+            "message": "{{ resource_name }} updated successfully"
+        }
+
+    def delete(self, id: int):
+        """
+        DELETE handler - Delete {{ resource_name }}.
+
+        Args:
+            id: ID of item to delete
+
+        Returns:
+            Deletion confirmation
+        """
+        item = self._find_by_id(id)
+        if not item:
+            return {
+                "error": "{{ resource_name }} not found",
+                "id": id
+            }, 404
+
+        # Delete item
+        self.items = [i for i in self.items if i["id"] != id]
+
+        return {
+            "message": "{{ resource_name }} deleted successfully",
+            "id": id
+        }
+
+    def _find_by_id(self, id: int) -> Optional[Dict[str, Any]]:
+        """
+        Helper method to find item by ID.
+
+        Args:
+            id: Item ID
+
+        Returns:
+            Item dict or None
+        """
+        for item in self.items:
+            if item["id"] == id:
+                return item
+        return None
+
+    def after_request(self, response):
+        """
+        Post-processing hook.
+
+        Add custom headers, logging, metrics, etc.
+        """
+        # Example: Add custom header
+        # response['X-Processed-By'] = 'REROUTE'
+        return response
+
+    def on_error(self, error: Exception):
+        """
+        Error handling hook.
+
+        Args:
+            error: Exception that occurred
+
+        Returns:
+            Error response
+        """
+        return {
+            "error": str(error),
+            "type": type(error).__name__,
+            "route": "{{ route_path }}",
+            "resource": "{{ resource_name }}"
+        }
