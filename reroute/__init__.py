@@ -32,7 +32,15 @@ __version__ = "0.1.1"
 from reroute.core.base import RouteBase
 from reroute.config import Config, DevConfig, ProdConfig
 from reroute.utils import run_server
-from reroute.adapters import FastAPIAdapter
+
+# Lazy import for adapters (requires optional dependencies)
+def __getattr__(name: str):
+    """Lazy import adapters to avoid requiring optional dependencies."""
+    if name == "FastAPIAdapter":
+        from reroute.adapters import FastAPIAdapter
+        return FastAPIAdapter
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # Core
