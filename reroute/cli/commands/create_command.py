@@ -7,8 +7,11 @@ Handles code generation for routes, CRUD, and models.
 import click
 from pathlib import Path
 import sys
+import re
+from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from .helpers import is_reroute_project, create_route_directory, to_class_name
+from .helpers import is_reroute_project, create_route_directory, to_class_name, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -34,13 +37,14 @@ def generate():
 
 
 @generate.command(name='route')
-@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+@click.option('--path', default=None,
+              callback=validate_route_path,
               help='URL path for the route')
-@click.option('--name', prompt='Route name (e.g., Users or Posts)',
-              help='Name for the route class')
+@click.option('--name', default=None,
+              help='Name for the route class (auto-generated from path if not provided)')
 @click.option('--methods',
-              default='GET,POST,PUT,DELETE',
-              help='HTTP methods (comma-separated)')
+              default=None,
+              help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
 def generate_route(path, name, methods, http_test):
@@ -65,10 +69,111 @@ def generate_route(path, name, methods, http_test):
             click.secho("Run 'reroute init' first to create a project.", fg='yellow')
             sys.exit(1)
 
-        # Create route
-        route_dir = create_route_directory(path)
+        # Prompt for path if not provided (with real-time validation)
+        if path is None:
+            path = inquirer.text(
+                message="Route path (e.g., /users or /api/posts):",
+                validate=validate_path_realtime,
+                invalid_message="Path must start with / and not end with / (e.g., /user, /api/posts)"
+            ).execute()
+
+        # Auto-generate name from path if not provided
+        if name is None:
+            auto_generated_name = auto_name_from_path(path)
+
+            # Ask for confirmation
+            use_auto_name = inquirer.confirm(
+                message=f'Use generated name "{auto_generated_name}"?',
+                default=True
+            ).execute()
+
+            if use_auto_name:
+                name = auto_generated_name
+                click.secho(f"\nFinal Route Name: {name}", fg='green', bold=True)
+            else:
+                # Ask for custom name with validation
+                def validate_custom_name(text):
+                    import re
+                    if not text or not text.strip():
+                        return False
+                    text = text.strip()
+                    # Must contain only alphanumeric, dashes, underscores
+                    # and must start with a letter (after stripping underscores)
+                    text_no_underscore = text.lstrip('_')
+                    if not text_no_underscore:
+                        return False
+                    if not text_no_underscore[0].isalpha():
+                        return False
+                    if not re.match(r'^[a-zA-Z0-9_-]+$', text):
+                        return False
+                    return True
+
+                name = inquirer.text(
+                    message="Enter your custom route name:",
+                    validate=validate_custom_name,
+                    invalid_message="Invalid name. Must start with a letter and contain only letters, numbers, dashes, underscores."
+                ).execute()
+                click.secho(f"\nFinal Route Name: {name}", fg='green', bold=True)
+
+        # Prepare class name and resource name
         class_name = to_class_name(name)
         resource_name = name.lower()
+
+        # Calculate route directory path (without creating it yet)
+        routes_dir = Path.cwd() / "app" / "routes"
+        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
+        route_dir = routes_dir / route_path_clean
+        route_file = route_dir / "page.py"
+
+        # Check for duplicate class name
+        if check_class_name_duplicate(class_name, route_dir):
+            click.secho(f"\n[ERROR] Class '{class_name}' already exists in {route_file}!", fg='red', bold=True)
+            click.secho(f"Choose a different name or delete the existing route first.", fg='yellow')
+            sys.exit(1)
+
+        # Parse methods - use interactive checkbox if not provided
+        if methods is None:
+            # Interactive method selection
+            selected_methods = inquirer.checkbox(
+                message="Select HTTP methods to generate:",
+                choices=[
+                    Choice("GET", enabled=True),
+                    Choice("POST", enabled=True),
+                    Choice("PUT", enabled=False),
+                    Choice("PATCH", enabled=False),
+                    Choice("DELETE", enabled=False),
+                ],
+                validate=lambda result: len(result) >= 1,
+                invalid_message="At least one method must be selected"
+            ).execute()
+
+            methods_list = selected_methods
+        else:
+            # Parse comma-separated methods
+            methods_list = [m.strip().upper() for m in methods.split(',')]
+
+        # Check if route already exists
+        existing_methods = _extract_existing_methods(route_file)
+        is_updating = len(existing_methods) > 0
+
+        if is_updating:
+            # Merge new methods with existing ones
+            combined_methods = list(set(existing_methods + methods_list))
+            combined_methods.sort(key=lambda x: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].index(x) if x in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] else 999)
+
+            new_methods = [m for m in methods_list if m not in existing_methods]
+
+            if not new_methods:
+                click.secho(f"[INFO] Methods {', '.join(methods_list)} already exist in route!", fg='yellow', bold=True)
+                click.secho(f"       Existing methods: {', '.join(existing_methods)}", fg='cyan')
+                return
+
+            methods_list = combined_methods
+            click.secho(f"\n[INFO] Route already exists. Adding new methods...", fg='cyan', bold=True)
+            click.secho(f"       Existing: {', '.join(existing_methods)}", fg='magenta')
+            click.secho(f"       Adding: {', '.join(new_methods)}", fg='green')
+            click.secho(f"       Final: {', '.join(methods_list)}", fg='yellow', bold=True)
+            click.echo()
 
         # Render template
         template = jinja_env.get_template('routes/class_route.py.j2')
@@ -76,21 +181,28 @@ def generate_route(path, name, methods, http_test):
             route_name=name,
             route_path=path,
             class_name=class_name,
-            resource_name=resource_name
+            resource_name=resource_name,
+            methods=methods_list
         )
 
+        # NOW create the directory (after all validations and inputs are complete)
+        route_dir.mkdir(parents=True, exist_ok=True)
+
         # Write route file
-        route_file = route_dir / "page.py"
         route_file.write_text(content)
 
-        click.secho(f"[OK] Route created: ", fg='green', bold=True, nl=False)
+        if is_updating:
+            click.secho(f"[OK] Route updated: ", fg='green', bold=True, nl=False)
+        else:
+            click.secho(f"[OK] Route created: ", fg='green', bold=True, nl=False)
+
         click.secho(f"{route_file}", fg='cyan')
         click.secho(f"     Path: ", fg='blue', nl=False)
         click.secho(f"{path}", fg='magenta', bold=True)
         click.secho(f"     Class: ", fg='blue', nl=False)
         click.secho(f"{class_name}", fg='green', bold=True)
         click.secho(f"     Methods: ", fg='blue', nl=False)
-        click.secho(f"{methods}", fg='yellow')
+        click.secho(f"{', '.join(methods_list)}", fg='yellow')
 
         # Generate HTTP test file if requested
         if http_test:
@@ -106,13 +218,17 @@ def generate_route(path, name, methods, http_test):
 
 
 @generate.command(name='crud')
-@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+@click.option('--path', default=None,
+              callback=validate_route_path,
               help='URL path for the CRUD resource')
-@click.option('--name', prompt='Resource name (e.g., User or Post)',
-              help='Name of the resource (singular)')
+@click.option('--name', default=None,
+              help='Name of the resource (auto-generated from path if not provided)')
+@click.option('--operations',
+              default=None,
+              help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def generate_crud(path, name, http_test):
+def generate_crud(path, name, operations, http_test):
     """
     Generate a full CRUD route.
 
@@ -134,10 +250,88 @@ def generate_crud(path, name, http_test):
             click.secho("Run 'reroute init' first to create a project.", fg='yellow')
             sys.exit(1)
 
-        # Create route
-        route_dir = create_route_directory(path)
+        # Prompt for path if not provided (with real-time validation)
+        if path is None:
+            path = inquirer.text(
+                message="Route path (e.g., /users or /api/posts):",
+                validate=validate_path_realtime,
+                invalid_message="Path must start with / and not end with / (e.g., /user, /api/posts)"
+            ).execute()
+
+        # Auto-generate name from path if not provided
+        if name is None:
+            auto_generated_name = auto_name_from_path(path)
+
+            # Ask for confirmation
+            use_auto_name = inquirer.confirm(
+                message=f'Use generated name "{auto_generated_name}"?',
+                default=True
+            ).execute()
+
+            if use_auto_name:
+                name = auto_generated_name
+                click.secho(f"\nFinal Resource Name: {name}", fg='green', bold=True)
+            else:
+                # Ask for custom name with validation
+                def validate_custom_name(text):
+                    import re
+                    if not text or not text.strip():
+                        return False
+                    text = text.strip()
+                    # Must contain only alphanumeric, dashes, underscores
+                    # and must start with a letter (after stripping underscores)
+                    text_no_underscore = text.lstrip('_')
+                    if not text_no_underscore:
+                        return False
+                    if not text_no_underscore[0].isalpha():
+                        return False
+                    if not re.match(r'^[a-zA-Z0-9_-]+$', text):
+                        return False
+                    return True
+
+                name = inquirer.text(
+                    message="Enter your custom resource name:",
+                    validate=validate_custom_name,
+                    invalid_message="Invalid name. Must start with a letter and contain only letters, numbers, dashes, underscores."
+                ).execute()
+                click.secho(f"\nFinal Resource Name: {name}", fg='green', bold=True)
+
+        # Prepare class name and resource name
         class_name = to_class_name(name)
         resource_name = name.lower()
+
+        # Calculate route directory path (without creating it yet)
+        routes_dir = Path.cwd() / "app" / "routes"
+        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
+        route_dir = routes_dir / route_path_clean
+        route_file = route_dir / "page.py"
+
+        # Check for duplicate class name
+        if check_class_name_duplicate(class_name, route_dir):
+            click.secho(f"\n[ERROR] Class '{class_name}' already exists in {route_file}!", fg='red', bold=True)
+            click.secho(f"Choose a different name or delete the existing route first.", fg='yellow')
+            sys.exit(1)
+
+        # Parse operations - use interactive checkbox if not provided
+        if operations is None:
+            # Interactive operation selection
+            selected_operations = inquirer.checkbox(
+                message="Select CRUD operations to generate:",
+                choices=[
+                    Choice("CREATE (POST)", enabled=True),
+                    Choice("READ (GET)", enabled=True),
+                    Choice("UPDATE (PUT)", enabled=True),
+                    Choice("DELETE (DELETE)", enabled=True),
+                ],
+                validate=lambda result: len(result) >= 1,
+                invalid_message="At least one operation must be selected"
+            ).execute()
+
+            # Extract operation names (remove HTTP method hints)
+            operations_list = [op.split(' ')[0] for op in selected_operations]
+        else:
+            # Parse comma-separated operations
+            operations_list = [op.strip().upper() for op in operations.split(',')]
 
         # Render template
         template = jinja_env.get_template('routes/crud_route.py.j2')
@@ -145,11 +339,14 @@ def generate_crud(path, name, http_test):
             route_name=name,
             route_path=path,
             class_name=class_name,
-            resource_name=resource_name
+            resource_name=resource_name,
+            operations=operations_list
         )
 
+        # NOW create the directory (after all validations and inputs are complete)
+        route_dir.mkdir(parents=True, exist_ok=True)
+
         # Write route file
-        route_file = route_dir / "page.py"
         route_file.write_text(content)
 
         click.secho(f"[OK] CRUD route created: ", fg='green', bold=True, nl=False)
@@ -159,7 +356,7 @@ def generate_crud(path, name, http_test):
         click.secho(f"     Class: ", fg='blue', nl=False)
         click.secho(f"{class_name}", fg='green', bold=True)
         click.secho(f"     Operations: ", fg='blue', nl=False)
-        click.secho(f"CREATE, READ, UPDATE, DELETE", fg='yellow', bold=True)
+        click.secho(f"{', '.join(operations_list)}", fg='yellow', bold=True)
 
         # Generate HTTP test file if requested
         if http_test:
@@ -175,7 +372,7 @@ def generate_crud(path, name, http_test):
 
 
 @generate.command(name='model')
-@click.option('--name', prompt='Model name (e.g., User or Post)',
+@click.option('--name', default=None,
               help='Name of the model (singular)')
 def generate_model(name):
     """
@@ -205,6 +402,30 @@ def generate_model(name):
             click.secho("[ERROR] Not in a REROUTE project directory!", fg='red', bold=True)
             click.secho("Run 'reroute init' first to create a project.", fg='yellow')
             sys.exit(1)
+
+        # Prompt for name if not provided (with real-time validation)
+        if name is None:
+            def validate_model_name(text):
+                """Real-time validation for model name"""
+                import re
+                if not text or not text.strip():
+                    return False
+                text = text.strip()
+                # Must contain only alphanumeric, dashes, underscores
+                text_no_underscore = text.lstrip('_')
+                if not text_no_underscore:
+                    return False
+                if not text_no_underscore[0].isalpha():
+                    return False
+                if not re.match(r'^[a-zA-Z0-9_-]+$', text):
+                    return False
+                return True
+
+            name = inquirer.text(
+                message="Model name (e.g., User or Post):",
+                validate=validate_model_name,
+                invalid_message="Model name must start with a letter and contain only letters, numbers, dashes, underscores."
+            ).execute()
 
         # Create models directory if it doesn't exist
         models_dir = Path.cwd() / "app" / "models"
@@ -268,13 +489,14 @@ def create():
 
 # Add route subcommand to create (mirrors generate route)
 @create.command(name='route')
-@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+@click.option('--path', default=None,
+              callback=validate_route_path,
               help='URL path for the route')
-@click.option('--name', prompt='Route name (e.g., Users or Posts)',
-              help='Name for the route class')
+@click.option('--name', default=None,
+              help='Name for the route class (auto-generated from path if not provided)')
 @click.option('--methods',
-              default='GET,POST,PUT,DELETE',
-              help='HTTP methods (comma-separated)')
+              default=None,
+              help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
 def create_route(path, name, methods, http_test):
@@ -295,13 +517,17 @@ def create_route(path, name, methods, http_test):
 
 
 @create.command(name='crud')
-@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+@click.option('--path', default=None,
+              callback=validate_route_path,
               help='URL path for the CRUD resource')
-@click.option('--name', prompt='Resource name (e.g., User or Post)',
-              help='Name of the resource (singular)')
+@click.option('--name', default=None,
+              help='Name of the resource (auto-generated from path if not provided)')
+@click.option('--operations',
+              default=None,
+              help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def create_crud(path, name, http_test):
+def create_crud(path, name, operations, http_test):
     """
     Create a full CRUD route.
 
@@ -315,11 +541,11 @@ def create_crud(path, name, http_test):
     # Call the same logic as generate_crud
     from click import Context
     ctx = Context(generate_crud)
-    ctx.invoke(generate_crud, path=path, name=name, http_test=http_test)
+    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test)
 
 
 @create.command(name='model')
-@click.option('--name', prompt='Model name (e.g., User or Post)',
+@click.option('--name', default=None,
               help='Name of the model (singular)')
 def create_model(name):
     """
@@ -339,6 +565,34 @@ def create_model(name):
 
 
 # Helper functions
+
+def _extract_existing_methods(route_file: Path) -> list:
+    """
+    Extract existing HTTP methods from a route file.
+
+    Args:
+        route_file: Path to the existing route file
+
+    Returns:
+        List of existing HTTP methods (uppercase)
+    """
+    if not route_file.exists():
+        return []
+
+    content = route_file.read_text()
+    existing_methods = []
+
+    # Look for method definitions: def get(self):, def post(self):, etc.
+    method_pattern = r'def\s+(get|post|put|patch|delete)\s*\('
+    matches = re.finditer(method_pattern, content, re.IGNORECASE)
+
+    for match in matches:
+        method = match.group(1).upper()
+        if method not in existing_methods:
+            existing_methods.append(method)
+
+    return existing_methods
+
 
 def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
     """

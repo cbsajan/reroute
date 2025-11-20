@@ -7,7 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2025-01-21
+## [0.1.3] - 2025-11-21
+
+### Added
+- **Auto-Name Generation** - Intelligent route name generation from paths
+  - Automatically generates PascalCase names from route paths (e.g., `/user/profile` → `UserProfile`)
+  - Confirmation prompt: accept auto-generated name or provide custom name
+  - Smart handling of special cases:
+    - Numbers at start: `/123-api` → `Route123Api` (auto-prefix with "Route")
+    - Special characters stripped: `/blog-posts` → `BlogPosts`
+    - Leading underscores removed: `/_admin` → `Admin`
+  - Validation ensures names are valid Python identifiers
+  - Applied to both `generate route` and `generate crud` commands
+
+- **Real-Time Input Validation** - Instant feedback as you type
+  - Migrated from Click prompts to InquirerPy for all interactive inputs
+  - Path validation shows errors immediately while typing (not after Enter)
+  - Custom name validation prevents invalid characters in real-time
+  - Better user experience with instant feedback
+
+- **Comprehensive Path Validation** - Security and compatibility checks
+  - Format: Must start with `/`, cannot end with `/` (except root)
+  - Security: No path traversal (`/../`, `/./`)
+  - Reserved names: Blocks `/__init__`, `/__pycache__`, `/__main__`
+  - Filesystem: No invalid characters (`<>:"|?*`) for Windows compatibility
+  - Length limit: Maximum 100 characters to prevent MAX_PATH issues
+  - No consecutive slashes (`//`)
+  - At least one valid segment required
+
+- **Duplicate Class Name Detection** - Prevents accidental overwrites
+  - Checks if class name already exists in `page.py` before creating route
+  - Clear error message with actionable guidance
+  - Prevents data loss from duplicate route creation
+
+- **Validation Documentation** - Comprehensive reference guide
+  - Created `docs/technical/VALIDATION_RULES.md`
+  - Documents all validation rules with examples
+  - Explains validation timing and error messages
+  - Philosophy: fail fast, clear feedback, safe defaults
+
+### Fixed
+- **Premature Directory Creation** - Critical bug fix
+  - Directories were being created during user prompts (before completion)
+  - Now directories only created AFTER all validations pass
+  - Applied to both `generate route` and `generate crud` commands
+  - Prevents empty folders when user cancels or validation fails
+
+- **Click Prompt Validation** - Fixed callback handling
+  - `validate_route_path()` now handles `None` values gracefully
+  - Returns `None` early when no value provided (interactive mode)
+  - Only validates when path is provided via command-line flag
+  - Allows InquirerPy to handle prompting with real-time validation
+
+### Changed
+- **Complete InquirerPy Migration** - Unified prompt library
+  - Removed all Click `prompt=` parameters across all commands
+  - Replaced with InquirerPy prompts with real-time validation
+  - Consistent UX across all commands (`init`, `generate route`, `generate crud`, `generate model`)
+  - Removed `questionary` dependency completely
+  - Updated `setup.py` and `pyproject.toml` dependencies
+  - Removed custom questionary styling code
+  - Cleaner, more maintainable prompt implementation
+
+- **Validation Helpers** - Code reuse and organization
+  - Created `validate_path_realtime()` helper in `helpers.py`
+  - Extracted validation logic into reusable functions
+  - Consistent validation across all route/CRUD commands
+  - Easier to maintain and test
+
+### Internal
+- Created helper functions for better code organization:
+  - `auto_name_from_path()` - Generate class name from route path
+  - `check_class_name_duplicate()` - Check for existing class names
+  - `validate_path_realtime()` - Real-time path validation for InquirerPy
+  - Enhanced `to_class_name()` - Preserves existing PascalCase
+- Directory creation moved to right before file write (after all validations)
+- Path calculation done without creating directories for duplicate checking
+
+## [0.1.1] - 2025-11-20
 
 ### Added
 - **Version Display** - CLI version flag support
@@ -153,7 +230,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `test_config_env.py` - 9 tests for .env loading and Config.Internal protection
 - All tests passing (25 new tests total)
 
-## [0.1.0] - 2024-01-15
+## [0.1.0] - 2025-11-19
 
 ### Added
 - Initial release of REROUTE framework

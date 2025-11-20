@@ -26,7 +26,8 @@ Full Import Guide:
     from reroute.logging import get_logger
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
+
 
 # Core essentials for minimal usage
 from reroute.core.base import RouteBase
