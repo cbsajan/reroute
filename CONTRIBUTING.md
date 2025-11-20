@@ -4,7 +4,7 @@ Thank you for considering contributing to REROUTE! We welcome all contributions 
 
 ## 📚 Full Contributing Guide
 
-**For detailed guidelines, please see the [Contributing Guide](DOCS_URL_PLACEHOLDER/contributing/) in our documentation.**
+**For detailed guidelines, please see the [Contributing Guide](https://cbsajan.github.io/reroute-docs/contributing/) in our documentation.**
 
 This includes:
 - Development setup and workflow
@@ -140,7 +140,7 @@ Fixes #42
 
 ## Getting Help
 
-- 📚 [Documentation](DOCS_URL_PLACEHOLDER)
+- 📚 [Documentation](https://cbsajan.github.io/reroute-docs)
 - 💬 [GitHub Discussions](https://github.com/cbsajan/reroute/discussions)
 - 🐛 [Issue Tracker](https://github.com/cbsajan/reroute/issues)
 
@@ -158,5 +158,3 @@ By contributing to REROUTE, you agree that your contributions will be licensed u
 ---
 
 Thank you for contributing to REROUTE! 🚀
-
-> **Note:** Replace `DOCS_URL_PLACEHOLDER` with the live documentation URL after deployment
