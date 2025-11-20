@@ -47,7 +47,7 @@ reroute = "reroute.cli.commands:cli"
 [project.urls]
 Homepage = "https://github.com/cbsajan/reroute"
 Repository = "https://github.com/cbsajan/reroute"
-Documentation = "https://github.com/cbsajan/reroute-docs"
+Documentation = "https://cbsajan.github.io/reroute-docs"
 
 [tool.setuptools]
 packages = ["reroute", "reroute.core", "reroute.adapters", "reroute.cli", "reroute.cli.templates"]

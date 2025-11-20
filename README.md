@@ -43,16 +43,14 @@ Visit `http://localhost:7376/docs` for interactive API documentation.
 
 ## Documentation
 
-📚 **[Complete Documentation](DOCS_URL_PLACEHOLDER)** - Full guides, API reference, and examples
+📚 **[Complete Documentation](https://cbsajan.github.io/reroute-docs)** - Full guides, API reference, and examples
 
 Quick links:
-- [Getting Started](DOCS_URL_PLACEHOLDER/getting-started/) - Installation and first route
-- [CLI Commands](DOCS_URL_PLACEHOLDER/cli/commands/) - Complete CLI reference
-- [API Reference](DOCS_URL_PLACEHOLDER/api/) - RouteBase, parameters, decorators, config
-- [Examples](DOCS_URL_PLACEHOLDER/examples/) - CRUD, authentication, rate limiting, caching
+- [Getting Started](https://cbsajan.github.io/reroute-docs/getting-started/) - Installation and first route
+- [CLI Commands](https://cbsajan.github.io/reroute-docs/cli/commands/) - Complete CLI reference
+- [API Reference](https://cbsajan.github.io/reroute-docs/api/) - RouteBase, parameters, decorators, config
+- [Examples](https://cbsajan.github.io/reroute-docs/examples/) - CRUD, authentication, rate limiting, caching
 - [Contributing](CONTRIBUTING.md) - How to contribute to REROUTE
-
-> **Note:** Replace `DOCS_URL_PLACEHOLDER` with the live documentation URL after deployment
 
 ## How It Works
 
@@ -110,7 +108,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **Documentation**: [DOCS_URL_PLACEHOLDER](DOCS_URL_PLACEHOLDER)
+- **Documentation**: [https://cbsajan.github.io/reroute-docs](https://cbsajan.github.io/reroute-docs)
 - **Issues**: [GitHub Issues](https://github.com/cbsajan/reroute/issues)
 - **PyPI**: [pypi.org/project/reroute](https://pypi.org/project/reroute)
 

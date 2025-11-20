@@ -12,6 +12,11 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 import os
 import sys
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from click import Group
+
+from reroute.cli.command.db_commands import db
 
 # Custom style for questionary prompts
 custom_style = Style([
@@ -51,6 +56,7 @@ def cli():
     click.secho("  File-based routing for Python backends", fg='cyan')
     click.secho("="*50 + "\n", fg='cyan', bold=True)
 
+cli.add_command(db)
 
 @cli.command()
 @click.argument('name', required=False)
