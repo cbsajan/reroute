@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-01-21
+
+### Added
+- **Version Display** - CLI version flag support
+  - `reroute --version` - Show version and exit
+  - `reroute -V` - Short flag for version
+  - Dynamic version reading from `__version__`
+  - Clean version display format: "REROUTE CLI v0.1.1"
+
+- **Update Notification System** - Automatic update checking
+  - Checks PyPI for newer versions once per day
+  - Non-blocking and silent on errors
+  - Displays update notification when newer version available
+  - Shows upgrade command: `pip install --upgrade reroute`
+  - Caches check results in `~/.reroute/update_check.json`
+  - Smart version comparison (0.1.0 < 0.1.1 < 0.2.0)
+
+- **Modular CLI Architecture** - Improved code organization
+  - `reroute/cli/commands/init_command.py` - Project initialization logic
+  - `reroute/cli/commands/create_command.py` - Code generation logic (route, crud, model)
+  - `reroute/cli/commands/helpers.py` - Shared utility functions
+  - `reroute/cli/main.py` - Main CLI entry point
+  - Better separation of concerns and maintainability
+
+- **Template Organization** - Structured Jinja2 templates
+  - `templates/project/` - Project initialization templates (env.example, gitignore, requirements.txt)
+  - `templates/config/` - Configuration templates
+  - `templates/app/` - Application templates
+  - `templates/routes/` - Route templates
+  - `templates/models/` - Model templates
+  - `templates/http/` - HTTP test templates
+  - `templates/tests/` - Test templates
+  - Template README with usage documentation
+
+### Fixed
+- **Duplicate Banner Issue** - Removed duplicate CLI banner display
+  - Banner was appearing twice (once in group, once in command)
+  - Removed banner from `cli()` group function
+  - Clean, professional command output
+
+### Changed
+- **Info Command** - Temporarily disabled for future implementation
+  - Commented out `reroute info` command
+  - Added TODO marker for future enhancement
+  - Will be re-implemented with more useful features later
+
+### Internal
+- Renamed `reroute/cli/commands.py` to `reroute/cli/main.py` to avoid naming conflict with `commands/` package
+- Moved `db_commands.py` from `cli/command/` to `cli/commands/`
+- Removed old `cli/command/` directory
+- Updated all import paths to use new structure
+
+## [Unreleased]
+
 ### Added
 - **Parameter Injection System** - FastAPI-style parameter extraction and validation
   - `Query` - URL query parameters with validation (ge, le, min_length, max_length, regex)
@@ -159,5 +213,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline code documentation
 - Template comments and examples
 
-[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/cbsajan/reroute/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/cbsajan/reroute/releases/tag/v0.1.0

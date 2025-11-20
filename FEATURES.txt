@@ -1,0 +1,67 @@
+  4. Contract-First Development with Auto-Sync 📜
+
+  What: Start with OpenAPI spec, auto-generate routes, keep them in sync
+
+  # Start with OpenAPI spec
+  reroute import openapi.yaml
+
+  # Generates:
+  # ✅ Folder structure
+  # ✅ Route classes with correct signatures
+  # ✅ Pydantic models
+  # ✅ TODO comments for business logic
+
+  # Reverse sync
+  reroute sync --to-openapi
+  # Updates OpenAPI spec based on code changes
+
+  Why Unique: Bidirectional sync between OpenAPI and code is rare, especially with folder structure.
+
+  ---
+
+  9. Dependency Injection System 💉
+
+  What: Built-in DI without external libraries
+
+  # services/database.py
+  from reroute.di import Injectable
+
+  @Injectable(scope="singleton")
+  class DatabaseService:
+      def __init__(self):
+          self.conn = create_connection()
+
+  # routes/users/page.py
+  from reroute.di import Inject
+
+  class UserRoutes(RouteBase):
+      db: DatabaseService = Inject()
+
+      def get(self):
+          users = self.db.query("SELECT * FROM users")
+          return users
+
+  Why Unique: Framework-level DI integrated with folder-based routing.
+
+  ---
+
+    💎 TIER 3: Innovative Enhancements
+
+  11. Route Marketplace 🏪
+
+  What: Install pre-built route packages
+
+  # Install common patterns
+  reroute install @reroute/auth-jwt
+  reroute install @reroute/payments-stripe
+  reroute install @reroute/search-elasticsearch
+
+  # Creates routes/ folders with:
+  # ✅ Complete implementation
+  # ✅ Tests
+  # ✅ Documentation
+  # ✅ Customizable templates
+
+  Why Unique: NPM-style package manager for route patterns.
+
+  ---
