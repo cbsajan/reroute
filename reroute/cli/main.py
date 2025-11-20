@@ -19,10 +19,14 @@ from reroute.cli.update_checker import check_for_updates
 
 
 def _version_callback(ctx, param, value):
-    """Display version and exit."""
+    """Display version and check for updates."""
     if value:
         from reroute import __version__
         click.echo(f'REROUTE CLI v{__version__}')
+
+        # Check for updates
+        check_for_updates(__version__)
+
         ctx.exit()
 
 
