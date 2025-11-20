@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.2] - 2025-11-20
 
-## [0.1.1] - 2025-11-21
+## [0.1.1] - 2025-11-20
 
 ### Added
 - **Version Display** - CLI version flag support
@@ -157,7 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `test_config_env.py` - 9 tests for .env loading and Config.Internal protection
 - All tests passing (25 new tests total)
 
-## [0.1.0] - 2024-11-15
+## [0.1.0] - 2024-11-19
 
 ### Added
 - Initial release of REROUTE framework
