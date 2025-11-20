@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reroute"
-version = "0.1.0"
+version = "0.1.1"
 description = "File-based routing for Python backend frameworks (FastAPI, Flask)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -42,7 +42,7 @@ dev = [
 ]
 
 [project.scripts]
-reroute = "reroute.cli.commands:cli"
+reroute = "reroute.cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/cbsajan/reroute"
@@ -50,7 +50,17 @@ Repository = "https://github.com/cbsajan/reroute"
 Documentation = "https://cbsajan.github.io/reroute-docs"
 
 [tool.setuptools]
-packages = ["reroute", "reroute.core", "reroute.adapters", "reroute.cli", "reroute.cli.templates"]
+packages = [
+    "reroute",
+    "reroute.core",
+    "reroute.adapters",
+    "reroute.cli",
+    "reroute.cli.commands",
+    "reroute.cli.templates"
+]
 
 [tool.setuptools.package-data]
-"reroute.cli" = ["templates/*.j2"]
+"reroute.cli.templates" = [
+    "**/*.j2",
+    "**/*.md"
+]
