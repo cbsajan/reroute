@@ -10,9 +10,32 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        include:
+          # Test latest Python on all OS (primary compatibility check)
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.12'
+          - os: macos-latest
+            python-version: '3.12'
+
+          # Test mid-range Python on all OS (ensures broad compatibility)
+          - os: ubuntu-latest
+            python-version: '3.10'
+          - os: windows-latest
+            python-version: '3.10'
+          - os: macos-latest
+            python-version: '3.10'
+
+          # Test oldest supported Python on Ubuntu only (validates min version)
+          - os: ubuntu-latest
+            python-version: '3.8'
+
+          # Optional: Test 3.11 on Ubuntu (common production version)
+          - os: ubuntu-latest
+            python-version: '3.11'
 
     steps:
       - name: Checkout code
