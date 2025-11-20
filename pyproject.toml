@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "File-based routing for Python backend frameworks (FastAPI, Flask)"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "Apache-2.0"
 authors = [
     {name = "C B Sajan", email = "cloud.ckhathri@gmail.com"}
 ]
@@ -16,7 +16,6 @@ keywords = ["fastapi", "flask", "routing", "file-based", "web-framework"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -51,7 +50,7 @@ Repository = "https://github.com/cbsajan/reroute"
 Documentation = "https://github.com/cbsajan/reroute-docs"
 
 [tool.setuptools]
-packages = ["reroute", "reroute.core", "reroute.adapters", "reroute.cli"]
+packages = ["reroute", "reroute.core", "reroute.adapters", "reroute.cli", "reroute.cli.templates"]
 
 [tool.setuptools.package-data]
 "reroute.cli" = ["templates/*.j2"]

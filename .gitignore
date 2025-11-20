@@ -22,7 +22,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-PUBLISHING.md
+archive/
+RestAPI/
 
 # Virtual environments
 venv/

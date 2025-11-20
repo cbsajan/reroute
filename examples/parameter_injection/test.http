@@ -1,0 +1,142 @@
+### REROUTE Parameter Injection Example - HTTP Tests
+### Use this file with REST Client extension in VS Code or similar HTTP client
+
+@baseUrl = http://localhost:7376
+@token = Bearer my-secret-token
+
+
+### 1. GET /users - List all users (no parameters)
+GET {{baseUrl}}/users
+
+
+### 2. GET /users - List users with pagination
+GET {{baseUrl}}/users?limit=2&offset=0
+
+
+### 3. GET /users - Search users by name
+GET {{baseUrl}}/users?search=alice
+
+
+### 4. GET /users - Filter active users only
+GET {{baseUrl}}/users?is_active=true
+
+
+### 5. GET /users - Combined filters
+GET {{baseUrl}}/users?limit=10&offset=0&search=bob&sort_by=name&is_active=true
+
+
+### 6. POST /users - Create new user (with authorization header)
+POST {{baseUrl}}/users
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "name": "David Wilson",
+  "description": "Backend Developer",
+  "is_active": true
+}
+
+
+### 7. POST /users - Create user (missing authorization - should fail)
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "description": "Test",
+  "is_active": true
+}
+
+
+### 8. POST /users - Create user (invalid authorization format - should fail)
+POST {{baseUrl}}/users
+Authorization: InvalidToken
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "description": "Test",
+  "is_active": true
+}
+
+
+### 9. POST /users - Create user (invalid data - should fail validation)
+POST {{baseUrl}}/users
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "description": "Invalid name",
+  "is_active": "not-a-boolean"
+}
+
+
+### 10. GET /users/detail - Get user by ID
+GET {{baseUrl}}/users/detail?id=1
+
+
+### 11. GET /users/detail - Get non-existent user (should fail)
+GET {{baseUrl}}/users/detail?id=999
+
+
+### 12. PUT /users/detail - Update user
+PUT {{baseUrl}}/users/detail?id=1
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "name": "Alice Updated",
+  "description": "Senior Software Engineer"
+}
+
+
+### 13. PUT /users/detail - Partial update (only name)
+PUT {{baseUrl}}/users/detail?id=2
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "name": "Bob Updated"
+}
+
+
+### 14. PUT /users/detail - Update without authorization (should fail)
+PUT {{baseUrl}}/users/detail?id=1
+Content-Type: application/json
+
+{
+  "name": "Should Fail"
+}
+
+
+### 15. DELETE /users/detail - Delete user
+DELETE {{baseUrl}}/users/detail?id=3
+Authorization: {{token}}
+
+
+### 16. DELETE /users/detail - Delete non-existent user (should fail)
+DELETE {{baseUrl}}/users/detail?id=999
+Authorization: {{token}}
+
+
+### 17. DELETE /users/detail - Delete without authorization (should fail)
+DELETE {{baseUrl}}/users/detail?id=1
+
+
+### Test Parameter Validation
+
+### 18. GET /users - Invalid limit (exceeds max)
+GET {{baseUrl}}/users?limit=200
+
+
+### 19. GET /users - Negative offset (should fail)
+GET {{baseUrl}}/users?offset=-1
+
+
+### 20. GET /users/detail - Invalid ID (not a number)
+GET {{baseUrl}}/users/detail?id=abc
+
+
+### 21. GET /users/detail - Invalid ID (zero or negative)
+GET {{baseUrl}}/users/detail?id=0

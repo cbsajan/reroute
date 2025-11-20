@@ -187,9 +187,9 @@ def init(name, framework, config, host, port, description):
         click.secho("Next steps:", fg='yellow', bold=True)
         click.secho(f"  cd {name}", fg='cyan')
         click.secho("  pip install -r requirements.txt", fg='cyan')
-        click.secho("  Happy Coding", fg='cyan')
         if framework == 'fastapi':
             click.secho(f"  python main.py", fg='cyan')
+        click.secho("\nHappy Coding!", fg='yellow',bold=True)
         click.secho(f"\nAPI Docs: ", fg='yellow', nl=False)
         click.secho(f"http://localhost:{port}/docs\n", fg='magenta', bold=True)
 
@@ -207,6 +207,7 @@ def generate():
     Available generators:
     - route: Generate a new route
     - crud: Generate a CRUD route with full operations
+    - model: Generate a Pydantic model for data validation
     """
     pass
 
@@ -349,6 +350,84 @@ def generate_crud(path, name, http_test):
 
     except Exception as e:
         click.secho(f"\n[ERROR] Failed to generate CRUD route: {e}", fg='red', bold=True)
+        sys.exit(1)
+
+
+@generate.command(name='model')
+@click.option('--name', prompt='Model name (e.g., User or Post)',
+              help='Name of the model (singular)')
+def generate_model(name):
+    """
+    Generate a Pydantic model for data validation.
+
+    Creates models for CRUD operations with default fields:
+    - ModelBase: Base schema with common fields
+    - ModelCreate: For POST requests
+    - ModelUpdate: For PUT/PATCH requests (all fields optional)
+    - ModelInDB: Database representation with id, timestamps
+    - ModelResponse: API response schema
+
+    The generated model includes example fields that you can customize.
+
+    Examples:
+        reroute generate model
+        reroute generate model --name User
+        reroute generate model --name Post
+    """
+    click.secho("\n" + "="*50, fg='cyan', bold=True)
+    click.secho("Generating Pydantic Model", fg='cyan', bold=True)
+    click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    try:
+        # Validate we're in a REROUTE project
+        if not _is_reroute_project():
+            click.secho("[ERROR] Not in a REROUTE project directory!", fg='red', bold=True)
+            click.secho("Run 'reroute init' first to create a project.", fg='yellow')
+            sys.exit(1)
+
+        # Create models directory if it doesn't exist
+        models_dir = Path.cwd() / "app" / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create __init__.py in models directory if it doesn't exist
+        init_file = models_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text('"""Models package"""\n')
+
+        # Generate model file
+        class_name = _to_class_name(name)
+        model_filename = name.lower() + ".py"
+        model_file = models_dir / model_filename
+
+        # Render template with default content
+        template = jinja_env.get_template('model.py.j2')
+        content = template.render(
+            model_name=class_name
+        )
+
+        # Write model file
+        model_file.write_text(content)
+
+        click.secho(f"[OK] Model created: ", fg='green', bold=True, nl=False)
+        click.secho(f"{model_file}", fg='cyan')
+        click.secho(f"     Model: ", fg='blue', nl=False)
+        click.secho(f"{class_name}", fg='green', bold=True)
+        click.secho(f"     Schemas: ", fg='blue', nl=False)
+        click.secho(f"{class_name}Base, {class_name}Create, {class_name}Update, {class_name}InDB, {class_name}Response", fg='yellow')
+
+        click.secho(f"\n[NOTE] Generated with default fields: ", fg='blue', nl=False)
+        click.secho("name, description, is_active", fg='magenta')
+        click.secho("[TIP] Customize the fields in the generated file to match your requirements.", fg='yellow')
+
+        click.secho(f"\n[TIP] Import with: ", fg='blue', nl=False)
+        click.secho(f"from app.models.{name.lower()} import {class_name}Create, {class_name}Response", fg='cyan')
+
+        click.echo()
+
+    except Exception as e:
+        click.secho(f"\n[ERROR] Failed to generate model: {e}", fg='red', bold=True)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
@@ -588,6 +667,173 @@ def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
     http_file.write_text(content)
 
     return http_file
+
+
+# Create command group (alias for generate, more intuitive)
+@cli.group()
+def create():
+    """
+    Create routes and components (alias for 'generate').
+
+    Available options:
+    - route: Create a new route
+    - crud: Create a CRUD route with full operations
+    - model: Create a Pydantic model for data validation
+    """
+    pass
+
+
+# Add route subcommand to create (mirrors generate route)
+@create.command(name='route')
+@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+              help='URL path for the route')
+@click.option('--name', prompt='Route name (e.g., Users or Posts)',
+              help='Name for the route class')
+@click.option('--methods',
+              default='GET,POST,PUT,DELETE',
+              help='HTTP methods (comma-separated)')
+@click.option('--http-test', is_flag=True, default=False,
+              help='Generate HTTP test file')
+def create_route(path, name, methods, http_test):
+    """
+    Create a new route file.
+
+    This is an alias for 'reroute generate route'.
+    Creates a class-based route with specified HTTP methods.
+
+    Examples:
+        reroute create route
+        reroute create route --path /users --name Users
+    """
+    # Call the same logic as generate_route
+    from click import Context
+    ctx = Context(generate_route)
+    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test)
+
+
+@create.command(name='crud')
+@click.option('--path', prompt='Route path (e.g., /users or /api/posts)',
+              help='URL path for the CRUD resource')
+@click.option('--name', prompt='Resource name (e.g., User or Post)',
+              help='Name of the resource (singular)')
+@click.option('--http-test', is_flag=True, default=False,
+              help='Generate HTTP test file')
+def create_crud(path, name, http_test):
+    """
+    Create a full CRUD route.
+
+    This is an alias for 'reroute generate crud'.
+    Creates a route with complete Create, Read, Update, Delete operations.
+
+    Examples:
+        reroute create crud
+        reroute create crud --path /users --name User
+    """
+    # Call the same logic as generate_crud
+    from click import Context
+    ctx = Context(generate_crud)
+    ctx.invoke(generate_crud, path=path, name=name, http_test=http_test)
+
+
+@create.command(name='model')
+@click.option('--name', prompt='Model name (e.g., User or Post)',
+              help='Name of the model (singular)')
+def create_model(name):
+    """
+    Create a Pydantic model.
+
+    This is an alias for 'reroute generate model'.
+    Creates models for data validation and CRUD operations with default fields.
+
+    Examples:
+        reroute create model
+        reroute create model --name User
+    """
+    # Call the same logic as generate_model
+    from click import Context
+    ctx = Context(generate_model)
+    ctx.invoke(generate_model, name=name)
+
+
+@cli.command()
+def info():
+    """
+    Show REROUTE project information.
+
+    Displays:
+    - Project structure
+    - Route count
+    - Configuration details
+    - REROUTE version
+    """
+    import json
+    from reroute import __version__
+
+    click.secho("\n" + "="*50, fg='cyan', bold=True)
+    click.secho("REROUTE Project Information", fg='cyan', bold=True)
+    click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    # Check if we're in a REROUTE project
+    if not _is_reroute_project():
+        click.secho("[WARNING] Not in a REROUTE project directory", fg='yellow', bold=True)
+        click.secho("Run 'reroute init' to create a new project.\n", fg='yellow')
+
+        # Still show REROUTE version
+        click.secho(f"REROUTE Version: ", fg='blue', nl=False)
+        click.secho(__version__, fg='green', bold=True)
+        print()
+        return
+
+    # Get project info
+    cwd = Path.cwd()
+    routes_dir = cwd / "app" / "routes"
+
+    # Count routes
+    route_count = 0
+    route_files = []
+    if routes_dir.exists():
+        for route_file in routes_dir.rglob("page.py"):
+            route_count += 1
+            rel_path = route_file.relative_to(routes_dir.parent)
+            route_files.append(str(rel_path))
+
+    # Show project details
+    click.secho(f"Project Directory: ", fg='blue', nl=False)
+    click.secho(str(cwd.name), fg='green', bold=True)
+
+    click.secho(f"REROUTE Version: ", fg='blue', nl=False)
+    click.secho(__version__, fg='green', bold=True)
+
+    click.secho(f"Total Routes: ", fg='blue', nl=False)
+    click.secho(str(route_count), fg='green', bold=True)
+
+    # Show route structure
+    if route_count > 0:
+        click.secho("\nRoute Files:", fg='blue', bold=True)
+        for route_file in sorted(route_files):
+            click.secho(f"  - {route_file}", fg='green')
+
+    # Check for main files
+    main_files = []
+    for filename in ['main.py', 'app.py', 'server.py']:
+        if (cwd / filename).exists():
+            main_files.append(filename)
+
+    if main_files:
+        click.secho(f"\nMain Files: ", fg='blue', nl=False)
+        click.secho(", ".join(main_files), fg='green')
+
+    # Check for tests
+    tests_dir = cwd / "tests"
+    test_count = 0
+    if tests_dir.exists():
+        test_count = len(list(tests_dir.rglob("*.http"))) + len(list(tests_dir.rglob("test_*.py")))
+
+    if test_count > 0:
+        click.secho(f"Test Files: ", fg='blue', nl=False)
+        click.secho(str(test_count), fg='green')
+
+    print()
 
 
 if __name__ == '__main__':

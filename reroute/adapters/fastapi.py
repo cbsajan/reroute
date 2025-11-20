@@ -4,14 +4,16 @@ FastAPI Adapter for REROUTE
 Integrates REROUTE's file-based routing with FastAPI.
 """
 
+import inspect
 from pathlib import Path
-from typing import Optional, Dict, Any, Type
+from typing import Optional, Dict, Any, Type, get_type_hints
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from reroute.core.router import Router
 from reroute.config import Config
+from reroute.params import Query, Path as PathParam, Header, Body, Cookie, Form, File, ParamBase
 
 
 class FastAPIAdapter:
@@ -80,6 +82,131 @@ class FastAPIAdapter:
         if self.config.VERBOSE_LOGGING:
             print(f"\n[OK] Registered {len(self.router.routes)} REROUTE routes with FastAPI")
 
+    async def _extract_request_data(self, request: Request, handler: callable) -> Dict[str, Any]:
+        """
+        Extract request data based on handler parameter annotations.
+
+        Args:
+            request: FastAPI Request object
+            handler: The handler function to extract parameters for
+
+        Returns:
+            Dictionary of parameter names to extracted values
+        """
+        extracted_params = {}
+
+        # Get handler signature
+        sig = inspect.signature(handler)
+
+        # Get path parameters from request
+        path_params = request.path_params
+
+        # Get query parameters
+        query_params = dict(request.query_params)
+
+        # Get headers
+        headers = dict(request.headers)
+
+        # Get cookies
+        cookies = dict(request.cookies)
+
+        # Process each parameter in the handler signature
+        for param_name, param in sig.parameters.items():
+            # Skip 'self' for class methods
+            if param_name == 'self':
+                continue
+
+            # Get the default value (which should be our ParamBase instance)
+            default_value = param.default
+
+            # Check if this is a REROUTE parameter injection
+            if isinstance(default_value, Query):
+                # Extract from query parameters
+                value = query_params.get(param_name)
+                if value is None and default_value.default is not ...:
+                    value = default_value.default
+                elif value is None and default_value.required:
+                    raise ValueError(f"Required query parameter '{param_name}' is missing")
+                extracted_params[param_name] = value
+
+            elif isinstance(default_value, PathParam):
+                # Extract from path parameters
+                value = path_params.get(param_name)
+                if value is None and default_value.default is not ...:
+                    value = default_value.default
+                elif value is None and default_value.required:
+                    raise ValueError(f"Required path parameter '{param_name}' is missing")
+                extracted_params[param_name] = value
+
+            elif isinstance(default_value, Header):
+                # Extract from headers (case-insensitive)
+                header_key = param_name.replace('_', '-')
+                value = headers.get(header_key.lower())
+                if value is None and default_value.default is not ...:
+                    value = default_value.default
+                elif value is None and default_value.required:
+                    raise ValueError(f"Required header '{param_name}' is missing")
+                extracted_params[param_name] = value
+
+            elif isinstance(default_value, Cookie):
+                # Extract from cookies
+                value = cookies.get(param_name)
+                if value is None and default_value.default is not ...:
+                    value = default_value.default
+                elif value is None and default_value.required:
+                    raise ValueError(f"Required cookie '{param_name}' is missing")
+                extracted_params[param_name] = value
+
+            elif isinstance(default_value, Body):
+                # Extract from request body
+                try:
+                    body_data = await request.json()
+                    # Get the type hint for this parameter
+                    type_hints = get_type_hints(handler)
+                    param_type = type_hints.get(param_name)
+
+                    # If it's a Pydantic model, instantiate it
+                    if param_type and hasattr(param_type, 'model_validate'):
+                        value = param_type.model_validate(body_data)
+                    else:
+                        value = body_data
+
+                    extracted_params[param_name] = value
+                except Exception as e:
+                    if default_value.required:
+                        raise ValueError(f"Invalid request body for parameter '{param_name}': {str(e)}")
+                    extracted_params[param_name] = default_value.default if default_value.default is not ... else None
+
+            elif isinstance(default_value, Form):
+                # Extract from form data
+                try:
+                    form_data = await request.form()
+                    value = form_data.get(param_name)
+                    if value is None and default_value.default is not ...:
+                        value = default_value.default
+                    elif value is None and default_value.required:
+                        raise ValueError(f"Required form field '{param_name}' is missing")
+                    extracted_params[param_name] = value
+                except Exception as e:
+                    if default_value.required:
+                        raise ValueError(f"Invalid form data for parameter '{param_name}': {str(e)}")
+
+            elif isinstance(default_value, File):
+                # Extract file upload
+                try:
+                    form_data = await request.form()
+                    value = form_data.get(param_name)
+                    if value is None and default_value.default is not ...:
+                        value = default_value.default
+                    elif value is None and default_value.required:
+                        raise ValueError(f"Required file '{param_name}' is missing")
+                    extracted_params[param_name] = value
+                except Exception as e:
+                    if default_value.required:
+                        raise ValueError(f"Invalid file upload for parameter '{param_name}': {str(e)}")
+
+        return extracted_params
+
     def _register_fastapi_route(
         self,
         path: str,
@@ -121,9 +248,11 @@ class FastAPIAdapter:
                     if before_result is not None:
                         return JSONResponse(content=before_result)
 
-                # Call the actual handler
-                # TODO: Pass request data to handler (body, params, etc.)
-                result = handler()
+                # Extract parameters from request based on handler signature
+                params = await self._extract_request_data(request, handler)
+
+                # Call the actual handler with extracted parameters
+                result = handler(**params)
 
                 # Call after_request hook if exists
                 if route_instance and hasattr(route_instance, 'after_request'):

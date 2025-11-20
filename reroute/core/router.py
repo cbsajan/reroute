@@ -17,7 +17,7 @@ class Router:
     Main routing engine for REROUTE.
 
     Discovers routes from folder structure and maps them to HTTP handlers.
-    Minimal version: flat folder structure only, no nested routes.
+    Supports nested routes with unlimited depth.
     """
 
     def __init__(self, app_dir: Path, config: Optional[Config]  = None):
@@ -30,7 +30,7 @@ class Router:
         """
         self.app_dir = Path(app_dir)
         self.config = config or Config
-        self.routes_dir = self.app_dir / self.config.ROUTES_DIR_NAME
+        self.routes_dir = self.app_dir / self.config.Internal.ROUTES_DIR_NAME
         self.loader = RouteLoader(self.routes_dir)
         self.routes: Dict[str, Dict[str, Callable]] = {}
 
@@ -38,16 +38,18 @@ class Router:
         """
         Discover all route folders in the routes directory.
 
-        For minimal version: scans only top-level folders in routes/
-        Each folder represents a route endpoint.
+        Recursively scans the routes directory to find all page.py files.
+        Supports nested routes with unlimited depth.
 
         Returns:
             List of discovered route paths
 
         Example:
             routes/
-                user/page.py    -> /user
-                product/page.py -> /product
+                user/page.py           -> /user
+                product/page.py        -> /product
+                user/profile/page.py   -> /user/profile
+                api/v1/users/page.py   -> /api/v1/users
         """
         discovered_routes = []
 
@@ -55,20 +57,23 @@ class Router:
         if not self.routes_dir.exists():
             return discovered_routes
 
-        # Step 1: Loop through everything in the routes/ folder
-        for item in self.routes_dir.iterdir():
+        # Recursively find all page.py files
+        for page_file in self.routes_dir.rglob(self.config.Internal.ROUTE_FILE_NAME):
+            # Get the route path by removing routes_dir and page.py
+            relative_path = page_file.parent.relative_to(self.routes_dir)
 
-            # Step 2: Check if it's a folder (not a file) and not ignored
-            if item.is_dir() and item.name not in self.config.IGNORE_FOLDERS:
+            # Skip if any parent folder is in IGNORE_FOLDERS
+            if any(part in self.config.Internal.IGNORE_FOLDERS for part in relative_path.parts):
+                continue
 
-                # Step 3: Check if this folder has the route file inside
-                page_file = item / self.config.ROUTE_FILE_NAME
-                if page_file.exists():
+            # Convert path to route (e.g., "user/profile" -> "/user/profile")
+            if str(relative_path) == ".":
+                # Root level route
+                route_path = "/"
+            else:
+                route_path = "/" + str(relative_path).replace("\\", "/")
 
-                    # Step 4: Convert folder name to route path
-                    # Example: "user" folder becomes "/user" route
-                    route_path = f"/{item.name}"
-                    discovered_routes.append(route_path)
+            discovered_routes.append(route_path)
 
         return discovered_routes
 
@@ -85,10 +90,19 @@ class Router:
         discovered = self.discover_routes()
 
         for route_path in discovered:
-            # Convert route path back to folder name
-            # "/user" -> "user"
-            folder_name = route_path.lstrip("/")
-            page_file = self.routes_dir / folder_name / "page.py"
+            # Convert route path back to folder path
+            # "/user/profile" -> "user/profile"
+            # "/" -> ""
+            if route_path == "/":
+                folder_path = ""
+            else:
+                folder_path = route_path.lstrip("/")
+
+            # Build page file path
+            if folder_path:
+                page_file = self.routes_dir / folder_path / "page.py"
+            else:
+                page_file = self.routes_dir / "page.py"
 
             # Load the module using our secure loader
             module = self.loader.load_module(page_file)
@@ -120,7 +134,7 @@ class Router:
                     route_instance = obj()
 
                     # Extract methods from the class instance
-                    for method in self.config.SUPPORTED_HTTP_METHODS:
+                    for method in self.config.Internal.SUPPORTED_HTTP_METHODS:
                         if hasattr(route_instance, method):
                             handler = getattr(route_instance, method)
                             if callable(handler):
@@ -129,7 +143,7 @@ class Router:
 
             # If no class found, look for standalone functions (backward compatibility)
             if not route_handlers:
-                for method in self.config.SUPPORTED_HTTP_METHODS:
+                for method in self.config.Internal.SUPPORTED_HTTP_METHODS:
                     if hasattr(module, method):
                         handler = getattr(module, method)
                         if callable(handler):

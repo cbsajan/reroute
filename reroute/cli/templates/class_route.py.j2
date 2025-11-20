@@ -4,7 +4,8 @@
 This route handles {{ route_path }} endpoints.
 """
 
-from reroute import RouteBase, rate_limit, cache
+from reroute import RouteBase
+from reroute.decorators import rate_limit, cache
 # noinspection PyUnresolvedReferences
 from logger import get_logger
 

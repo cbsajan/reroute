@@ -8,10 +8,13 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 
 - **File-based Routing**: Folder structure maps directly to URL paths
 - **Class-based Routes**: Clean, organized route handlers with lifecycle hooks
-- **Framework Adapters**: Works with FastAPI (Flask coming soon)
+- **Parameter Injection**: FastAPI-style parameter extraction (Query, Path, Header, Body, etc.)
+- **Pydantic Models**: Generate data validation models with CLI
+- **Framework Adapters**: Works with FastAPI (Flask, Django support coming)
 - **Interactive CLI**: Next.js-style project scaffolding with beautiful prompts
-- **Code Generation**: Quickly generate routes, CRUD operations, and tests
-- **Configuration-driven**: Easy to customize and extend
+- **Code Generation**: Quickly generate routes, CRUD operations, models, and tests
+- **Environment Config**: .env file support with auto-loading
+- **Powerful Decorators**: Rate limiting, caching, validation, and more
 - **API Versioning**: Built-in support for base path prefixes (e.g., `/api/v1`)
 
 ## Installation
@@ -40,9 +43,16 @@ Visit `http://localhost:7376/docs` for interactive API documentation.
 
 ## Documentation
 
-- **[Commands Reference](COMMANDS.md)** - Complete CLI commands guide
-- **[Contributing](CONTRIBUTING.md)** - How to contribute to REROUTE
-- **[Full Documentation](https://github.com/cbsajan/reroute-docs)** - Code examples and tutorials (coming soon)
+📚 **[Complete Documentation](DOCS_URL_PLACEHOLDER)** - Full guides, API reference, and examples
+
+Quick links:
+- [Getting Started](DOCS_URL_PLACEHOLDER/getting-started/) - Installation and first route
+- [CLI Commands](DOCS_URL_PLACEHOLDER/cli/commands/) - Complete CLI reference
+- [API Reference](DOCS_URL_PLACEHOLDER/api/) - RouteBase, parameters, decorators, config
+- [Examples](DOCS_URL_PLACEHOLDER/examples/) - CRUD, authentication, rate limiting, caching
+- [Contributing](CONTRIBUTING.md) - How to contribute to REROUTE
+
+> **Note:** Replace `DOCS_URL_PLACEHOLDER` with the live documentation URL after deployment
 
 ## How It Works
 
@@ -100,8 +110,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
+- **Documentation**: [DOCS_URL_PLACEHOLDER](DOCS_URL_PLACEHOLDER)
 - **Issues**: [GitHub Issues](https://github.com/cbsajan/reroute/issues)
-- **Documentation**: [Full Documentation](https://github.com/cbsajan/reroute-docs) (coming soon)
+- **PyPI**: [pypi.org/project/reroute](https://pypi.org/project/reroute)
 
 ---
 
