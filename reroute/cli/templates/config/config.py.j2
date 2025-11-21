@@ -30,6 +30,20 @@ class AppConfig(Config):
     CORS_ALLOW_HEADERS = ["*"]
     CORS_ALLOW_CREDENTIALS = False
 
+    # OpenAPI/Swagger Documentation Configuration
+    class OpenAPI:
+        ENABLE = True  # Enable OpenAPI documentation
+
+        # Documentation Endpoints
+        DOCS_PATH = "/docs"            # Swagger UI endpoint
+        {% if framework == 'fastapi' %}REDOC_PATH = None         # ReDoc endpoint (FastAPI only){% else %}REDOC_PATH = None              # ReDoc disabled for Flask (broken CDN){% endif %}
+        JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
+
+        # API Metadata
+        TITLE = "{{ project_name }}"  # API title
+        VERSION = "1.0.0"              # API version
+        DESCRIPTION = "{{ project_name }} API - Built with REROUTE"  # API description
+
     # Routing Configuration (inherited from Config)
     # ROUTES_DIR_NAME = "routes"
 

@@ -4,17 +4,33 @@ REROUTE - The Modern Python Backend Framework
 A lightweight Python backend framework inspired by Angular CLI (generation),
 Next.js (folder routing), and FastAPI/Flask (underlying HTTP).
 
-Minimal Quick Start:
+Minimal Quick Start (FastAPI):
     from fastapi import FastAPI
-    from reroute import RouteBase, FastAPIAdapter
+    from reroute import FastAPIAdapter
+    from config import AppConfig
 
-    app = FastAPI()
-    adapter = FastAPIAdapter(app, app_dir="./app")
+    app = FastAPI(title="My API")
+    adapter = FastAPIAdapter(app, app_dir="./app", config=AppConfig)
     adapter.register_routes()
+
+    if __name__ == "__main__":
+        adapter.run_server()  # Auto-detects project name from app.title
+
+Minimal Quick Start (Flask):
+    from flask import Flask
+    from reroute import FlaskAdapter
+    from config import AppConfig
+
+    app = Flask(__name__)
+    adapter = FlaskAdapter(app, app_dir="./app", config=AppConfig)
+    adapter.register_routes()
+
+    if __name__ == "__main__":
+        adapter.run_server()  # Auto-detects project name from app.name
 
 Full Import Guide:
     # Core - minimal essentials
-    from reroute import RouteBase, Config, FastAPIAdapter, run_server
+    from reroute import RouteBase, Config, FastAPIAdapter, FlaskAdapter, run_server
 
     # Parameter injection
     from reroute.params import Query, Body, Header, Path
@@ -41,6 +57,10 @@ def __getattr__(name: str):
         from reroute.adapters import FastAPIAdapter
         return FastAPIAdapter
 
+    elif name == "FlaskAdapter":
+        from reroute.adapters import FlaskAdapter
+        return FlaskAdapter
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -51,6 +71,7 @@ __all__ = [
     "ProdConfig",
     # Adapters (for minimal setup)
     "FastAPIAdapter",
+    "FlaskAdapter",
     # Utils (for minimal setup)
     "run_server",
     # Version

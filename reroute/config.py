@@ -53,6 +53,33 @@ class Config:
         auto_load = True  # Automatically load .env file
         override = True  # Override existing environment variables
 
+    class OpenAPI:
+        """
+        OpenAPI/Swagger documentation settings.
+
+        Applies to both FastAPI and Flask frameworks.
+        Users can customize documentation endpoints and API metadata.
+
+        Usage:
+            class CustomConfig(Config):
+                class OpenAPI:
+                    ENABLE = True
+                    DOCS_PATH = "/api-docs"
+                    REDOC_PATH = None  # Disable ReDoc
+        """
+        # Enable/Disable OpenAPI documentation
+        ENABLE = True  # True by default for FastAPI, opt-in for Flask
+
+        # Documentation Endpoints (customizable)
+        DOCS_PATH = "/docs"            # Swagger UI endpoint
+        REDOC_PATH = "/redoc"          # ReDoc endpoint
+        JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
+
+        # API Metadata
+        TITLE = None                   # Auto-generated from project name if None
+        VERSION = "1.0.0"              # API version
+        DESCRIPTION = None             # Auto-generated if None
+
     # User-Configurable Settings
     # ============================
 

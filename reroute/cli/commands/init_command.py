@@ -24,7 +24,6 @@ jinja_env = Environment(
 @click.command()
 @click.argument('name', required=False)
 @click.option('--framework', default=None,
-              type=click.Choice(['fastapi', 'flask'], case_sensitive=False),
               help='Backend framework (fastapi or flask)')
 @click.option('--config',
               type=click.Choice(['dev', 'prod'], case_sensitive=False),
@@ -78,6 +77,13 @@ def init(name, framework, config, host, port, description):
         if not framework:
             click.secho("\n[ERROR] Framework selection is required!", fg='red', bold=True)
             sys.exit(1)
+    else:
+        # Validate and normalize CLI flag input (case-insensitive)
+        framework_lower = framework.lower()
+        if framework_lower not in ['fastapi', 'flask']:
+            click.secho(f"\n[ERROR] Invalid framework: '{framework}'. Choose 'fastapi' or 'flask'.", fg='red', bold=True)
+            sys.exit(1)
+        framework = framework_lower
 
     # Ask about test cases
     generate_tests = inquirer.select(
@@ -152,8 +158,7 @@ def init(name, framework, config, host, port, description):
         click.secho("Next steps:", fg='yellow', bold=True)
         click.secho(f"  cd {name}", fg='cyan')
         click.secho("  pip install -r requirements.txt", fg='cyan')
-        if framework == 'fastapi':
-            click.secho(f"  python main.py", fg='cyan')
+        click.secho(f"  python main.py", fg='cyan')
         click.secho("\nHappy Coding!", fg='yellow', bold=True)
         click.secho(f"\nAPI Docs: ", fg='yellow', nl=False)
         click.secho(f"http://localhost:{port}/docs\n", fg='magenta', bold=True)
@@ -205,15 +210,10 @@ def _generate_app_file(project_dir: Path, name: str, framework: str,
     """Generate the main application file using Jinja2 template."""
     if framework == 'fastapi':
         template = jinja_env.get_template('app/fastapi_app.py.j2')
-        config_class = 'DevConfig' if config == 'dev' else 'ProdConfig'
 
         content = template.render(
             project_name=name,
-            description=description or f"{name} API",
-            config_class=config_class,
-            host=host,
-            port=port,
-            reload=str(config == 'dev')
+            description=description or f"{name} API"
         )
 
         # Use main.py to avoid naming conflict with app/ directory
@@ -221,8 +221,15 @@ def _generate_app_file(project_dir: Path, name: str, framework: str,
         app_file.write_text(content)
 
     elif framework == 'flask':
-        # TODO: Implement Flask template
-        click.secho("[WARNING] Flask support coming soon!", fg='yellow')
+        template = jinja_env.get_template('app/flask_app.py.j2')
+
+        content = template.render(
+            project_name=name
+        )
+
+        # Use main.py to avoid naming conflict with app/ directory
+        app_file = project_dir / "main.py"
+        app_file.write_text(content)
 
 
 def _generate_example_route(project_dir: Path):
@@ -234,6 +241,7 @@ def _generate_example_route(project_dir: Path):
     content = template.render(
         route_name="Hello",
         route_path="/hello",
+        methods=["GET", "POST", "PUT", "DELETE"],
         class_name="HelloRoutes",
         resource_name="hello"
     )
@@ -258,8 +266,19 @@ def _generate_tests(project_dir: Path, framework: str):
         test_file = tests_dir / "test_main.py"
         test_file.write_text(content)
     elif framework == 'flask':
-        # TODO: Implement Flask tests
-        click.secho("[WARNING] Flask tests coming soon!", fg='yellow')
+        # Create tests directory
+        tests_dir = project_dir / "tests"
+        tests_dir.mkdir(exist_ok=True)
+
+        # Create __init__.py
+        (tests_dir / "__init__.py").write_text('"""Tests package"""')
+
+        # Generate test file
+        template = jinja_env.get_template('tests/test_flask.py.j2')
+        content = template.render(project_name=project_dir.name)
+
+        test_file = tests_dir / "test_main.py"
+        test_file.write_text(content)
 
 
 def _create_requirements(project_dir: Path, framework: str, include_tests: bool = False):

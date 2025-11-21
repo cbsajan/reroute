@@ -22,6 +22,15 @@ def __getattr__(name: str):
                 f"FastAPI is not installed. Install it with: pip install reroute[fastapi]"
             ) from e
 
+    elif name == "FlaskAdapter":
+        try:
+            from reroute.adapters.flask import FlaskAdapter
+            return FlaskAdapter
+        except ImportError as e:
+            raise ImportError(
+                f"Flask is not installed. Install it with: pip install reroute[flask]"
+            ) from e
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-__all__ = ["FastAPIAdapter"]
+__all__ = ["FastAPIAdapter", "FlaskAdapter"]

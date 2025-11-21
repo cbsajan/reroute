@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-11-21
+
+### Added
+
+#### Flask Adapter - OpenAPI Support
+- **Spectree Integration** - Automatic OpenAPI documentation with Swagger UI and Scalar UI
+- **Dynamic HTTP Method Decorators** - `@adapter.get()`, `@adapter.post()`, `@adapter.put()`, `@adapter.patch()`, `@adapter.delete()`, `@adapter.head()`, `@adapter.options()`, `@adapter.route()`
+- **Request/Response Validation** - Automatic validation using Pydantic models via Spectree
+- **Documentation UIs**:
+  - Swagger UI at `/swagger/`
+  - Scalar UI at `/scalar/`
+  - OpenAPI JSON at `/openapi.json`
+  - ReDoc disabled (broken CDN URL)
+
+#### FastAPI Adapter Enhancements
+- **Auto-Reload Detection** - Automatically constructs import string (`main:app`) for uvicorn reload mode
+- **Route Removal for Disabled Endpoints** - Properly removes routes when OpenAPI paths set to `None`
+- **Explicit None Handling** - Ensures empty strings treated as `None` for OpenAPI paths
+
+#### Configuration
+- **OpenAPI Configuration Section**:
+  - `OpenAPI.ENABLE` - Enable/disable documentation
+  - `OpenAPI.DOCS_PATH` - Swagger UI endpoint (set to `None` to disable)
+  - `OpenAPI.REDOC_PATH` - ReDoc endpoint (Flask: `None`, FastAPI: `"/redoc"`)
+  - `OpenAPI.JSON_PATH` - OpenAPI JSON spec endpoint
+  - `OpenAPI.TITLE` - API title (auto-generated if `None`)
+  - `OpenAPI.VERSION` - API version
+  - `OpenAPI.DESCRIPTION` - API description (auto-generated if `None`)
+
+#### Parameter Override Support
+- **Runtime Configuration** - `run_server()` kwargs override config values
+- **Enhanced Documentation** - Comprehensive docstrings with available parameters
+
+### Changed
+
+#### Flask
+- **Documentation URLs**:
+  - Swagger UI: `/swagger/` (not `/docs`)
+  - Scalar UI: `/scalar/` (new)
+  - ReDoc: Disabled
+- **Decorator Syntax**: Use `@adapter.get()` instead of `@adapter.app.get()`
+- **Spectree Registration**: Happens automatically after `register_routes()`
+
+#### FastAPI
+- **Parameter Precedence**: Config defaults, kwargs override
+- **Startup Messages**: Only show enabled documentation endpoints
+
+#### Dependencies
+- Added `spectree>=1.2.0` to Flask extras
+- Added `colorama>=0.4.0` for Windows console colors
+
+### Fixed
+- Flask parameter override in `run_server()`
+- FastAPI parameter override in `run_server()`
+- FastAPI ReDoc disable (`REDOC_PATH = None` now removes route completely)
+- Colorama initialization for Windows
+- Uvicorn reload warning ("must pass application as import string")
+
+### Migration Guide
+
+#### Flask Projects
+1. Install: `pip install spectree flask-cors`
+2. Add OpenAPI config section:
+```python
+class AppConfig(Config):
+    class OpenAPI:
+        ENABLE = True
+        DOCS_PATH = "/docs"
+        REDOC_PATH = None
+        JSON_PATH = "/openapi.json"
+        TITLE = "My API"
+        VERSION = "1.0.0"
+        DESCRIPTION = "API Description"
+```
+3. Update syntax: `@adapter.app.get()` → `@adapter.get()`
+4. Update URLs: `/docs` → `/swagger/`
+
+#### FastAPI Projects
+1. Add OpenAPI config (if missing)
+2. Optional: Set `REDOC_PATH = None` to disable ReDoc
+3. Use parameter overrides: `adapter.run_server(port=8080)`
+
+### Breaking Changes
+- **Flask**: Must use `@adapter.get()` instead of `@adapter.app.get()`
+- **Flask**: Documentation moved to `/swagger/` and `/scalar/`
+- **Configuration**: Must add `OpenAPI` nested class
+
 ## [0.1.3] - 2025-11-21
 
 ### Added
