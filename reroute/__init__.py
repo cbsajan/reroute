@@ -42,7 +42,7 @@ Full Import Guide:
     from reroute.logging import get_logger
 """
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 # Core essentials for minimal usage
