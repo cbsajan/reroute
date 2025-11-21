@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.3] - 2025-11-21
 
+## [0.1.3] - 2025-11-21
+
 ### Added
 - **Auto-Name Generation** - Intelligent route name generation from paths
   - Automatically generates PascalCase names from route paths (e.g., `/user/profile` → `UserProfile`)
@@ -139,6 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all import paths to use new structure
 
 ## [Unreleased]
+
+## [0.1.3] - 2025-11-21
 
 ## [0.1.2] - 2025-11-20
 
@@ -300,3 +304,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.2...HEAD
 [0.1.2]: https://github.com/cbsajan/reroute/compare/v...v0.1.2
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/cbsajan/reroute/compare/v...v0.1.3
