@@ -13,7 +13,7 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 
 setup(
     name="reroute",
-    version="0.1.3",
+    version="0.1.4",
 
     description="File-based routing for Python backend frameworks (FastAPI, Flask)",
     long_description=long_description,
@@ -28,12 +28,17 @@ setup(
     },
     install_requires=[
         "click>=8.0.0",
+        "colorama>=0.4.0",  # Required for colored output on Windows
         "InquirerPy>=0.3.0",
         "jinja2>=3.0.0",
     ],
     extras_require={
         "fastapi": ["fastapi>=0.100.0", "uvicorn[standard]>=0.20.0"],
-        "flask": ["flask>=2.0.0"],
+        "flask": [
+            "flask>=2.0.0",
+            "flask-cors>=4.0.0",
+            "spectree>=1.2.0"
+        ],
         "dev": [
             "pytest>=7.0.0",
             "pytest-asyncio>=0.21.0",
