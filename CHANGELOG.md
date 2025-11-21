@@ -84,6 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Directory creation moved to right before file write (after all validations)
 - Path calculation done without creating directories for duplicate checking
 
+## [0.1.2] - 2025-11-20
+
 ## [0.1.1] - 2025-11-20
 
 ### Added
@@ -137,6 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all import paths to use new structure
 
 ## [Unreleased]
+
+## [0.1.2] - 2025-11-20
 
 ### Added
 - **Parameter Injection System** - FastAPI-style parameter extraction and validation
@@ -293,3 +297,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/cbsajan/reroute/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/cbsajan/reroute/releases/tag/v0.1.0
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/cbsajan/reroute/compare/v...v0.1.2
