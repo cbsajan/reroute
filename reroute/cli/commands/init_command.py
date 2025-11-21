@@ -5,26 +5,11 @@ Handles project initialization with interactive prompts.
 """
 
 import click
-import questionary
-from questionary import Style
+from InquirerPy import inquirer
 from pathlib import Path
 import sys
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from .helpers import validate_project_name
-
-# Custom style for questionary prompts
-custom_style = Style([
-    ('qmark', 'fg:#673ab7 bold'),
-    ('question', 'bold'),
-    ('answer', 'fg:#2196f3 bold'),
-    ('pointer', 'fg:#673ab7 bold'),
-    ('highlighted', 'fg:#2196f3 bold'),
-    ('selected', 'fg:#4caf50 bold'),
-    ('separator', 'fg:#cc5454'),
-    ('instruction', ''),
-    ('text', ''),
-    ('disabled', 'fg:#858585 italic')
-])
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -68,11 +53,11 @@ def init(name, framework, config, host, port, description):
 
     # Interactive prompts if not provided via flags
     if not name:
-        name = questionary.text(
-            "Project name:",
-            validate=lambda text: validate_project_name(text),
-            style=custom_style
-        ).ask()
+        name = inquirer.text(
+            message="Project name:",
+            validate=lambda text: validate_project_name(text) is True,
+            invalid_message=lambda text: validate_project_name(text) if validate_project_name(text) is not True else ""
+        ).execute()
         if not name:
             click.secho("\n[ERROR] Project name is required!", fg='red', bold=True)
             sys.exit(1)
@@ -86,22 +71,20 @@ def init(name, framework, config, host, port, description):
     project_dir = Path.cwd() / name
 
     if not framework:
-        framework = questionary.select(
-            "Which framework would you like to use?",
-            choices=['fastapi', 'flask'],
-            style=custom_style
-        ).ask()
+        framework = inquirer.select(
+            message="Which framework would you like to use?",
+            choices=['fastapi', 'flask']
+        ).execute()
         if not framework:
             click.secho("\n[ERROR] Framework selection is required!", fg='red', bold=True)
             sys.exit(1)
 
     # Ask about test cases
-    generate_tests = questionary.select(
-        "Would you like to generate test cases?",
+    generate_tests = inquirer.select(
+        message="Would you like to generate test cases?",
         choices=['Yes', 'No'],
-        default='Yes',
-        style=custom_style
-    ).ask()
+        default='Yes'
+    ).execute()
     include_tests = generate_tests == 'Yes'
 
     # Review section - show configuration
@@ -121,14 +104,12 @@ def init(name, framework, config, host, port, description):
     click.secho("="*50 + "\n", fg='yellow', bold=True)
 
     # Ask for confirmation
-    confirm = questionary.select(
-        "Does this look correct?",
-        choices=['Yes, create the project', 'No, cancel'],
-        default='Yes, create the project',
-        style=custom_style
-    ).ask()
+    confirm = inquirer.confirm(
+        message="Does this look correct?",
+        default=True
+    ).execute()
 
-    if confirm == 'No, cancel':
+    if not confirm:
         click.secho("\n[CANCELLED] Project creation cancelled by user.\n", fg='yellow')
         sys.exit(0)
 
