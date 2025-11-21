@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.4] - 2025-11-21
 
+## [0.1.4] - 2025-11-21
+
 ### Added
 
 #### Flask Adapter - OpenAPI Support
@@ -229,6 +231,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-11-21
+
 ## [0.1.3] - 2025-11-21
 
 ## [0.1.2] - 2025-11-20
@@ -394,3 +398,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.3...HEAD
 [0.1.3]: https://github.com/cbsajan/reroute/compare/v...v0.1.3
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/cbsajan/reroute/compare/v...v0.1.4
