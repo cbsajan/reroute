@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "{{ project_name }} - Built with REROUTE"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Your Name", email = "you@example.com"}
+]
+keywords = ["reroute", "{{ framework }}", "api"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+{% if framework == 'fastapi' %}
+    "Framework :: FastAPI",
+{% elif framework == 'flask' %}
+    "Framework :: Flask",
+{% endif %}
+]
+
+dependencies = [
+    "reroute",
+{% if framework == 'fastapi' %}
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+{% elif framework == 'flask' %}
+    "flask>=2.0.0",
+    "flask-cors>=4.0.0",
+    "spectree>=1.2.0",
+{% endif %}
+{% if db_type %}
+{% if db_type == 'postgresql' %}
+    "psycopg2-binary>=2.9.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+{% elif db_type == 'mysql' %}
+    "pymysql>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+{% elif db_type == 'mongodb' %}
+    "pymongo>=4.0.0",
+    "motor>=3.0.0",
+{% endif %}
+    "python-dotenv>=1.0.0",
+{% endif %}
+]
+
+[project.optional-dependencies]
+dev = [
+{% if include_tests %}
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
+{% endif %}
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/{{ project_name }}"
+Repository = "https://github.com/yourusername/{{ project_name }}"
+Documentation = "https://github.com/yourusername/{{ project_name }}#readme"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
