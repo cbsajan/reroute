@@ -146,9 +146,13 @@ def init(name, framework, config, host, port, description):
             click.secho("Creating test cases...", fg='blue')
             _generate_tests(project_dir, framework)
 
-        # Create requirements.txt
+        # Create requirements.txt (legacy, will be removed in v0.3.0)
         click.secho("Creating requirements.txt...", fg='blue')
         _create_requirements(project_dir, framework, include_tests)
+
+        # Create pyproject.toml (modern, uv-compatible)
+        click.secho("Creating pyproject.toml...", fg='blue')
+        _create_pyproject(project_dir, name, framework, include_tests)
 
         click.secho("\n" + "="*50, fg='green', bold=True)
         click.secho("[OK] Project created successfully!", fg='green', bold=True)
@@ -157,8 +161,11 @@ def init(name, framework, config, host, port, description):
         # Show next steps
         click.secho("Next steps:", fg='yellow', bold=True)
         click.secho(f"  cd {name}", fg='cyan')
+        click.secho("\n  # Option 1: Using pip (traditional)", fg='white', dim=True)
         click.secho("  pip install -r requirements.txt", fg='cyan')
-        click.secho(f"  python main.py", fg='cyan')
+        click.secho("\n  # Option 2: Using uv (faster, modern)", fg='white', dim=True)
+        click.secho("  uv pip install -e .", fg='cyan')
+        click.secho(f"\n  python main.py", fg='cyan')
         click.secho("\nHappy Coding!", fg='yellow', bold=True)
         click.secho(f"\nAPI Docs: ", fg='yellow', nl=False)
         click.secho(f"http://localhost:{port}/docs\n", fg='magenta', bold=True)
@@ -291,3 +298,16 @@ def _create_requirements(project_dir: Path, framework: str, include_tests: bool 
     )
     requirements_file = project_dir / "requirements.txt"
     requirements_file.write_text(content)
+
+
+def _create_pyproject(project_dir: Path, project_name: str, framework: str, include_tests: bool = False):
+    """Create pyproject.toml using template (modern Python standard, uv-compatible)."""
+    template = jinja_env.get_template('project/pyproject.toml.j2')
+    content = template.render(
+        project_name=project_name,
+        framework=framework,
+        db_type=None,
+        include_tests=include_tests
+    )
+    pyproject_file = project_dir / "pyproject.toml"
+    pyproject_file.write_text(content)

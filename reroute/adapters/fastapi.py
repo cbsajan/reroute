@@ -250,6 +250,9 @@ class FastAPIAdapter:
                 # Call before_request hook if exists
                 if route_instance and hasattr(route_instance, 'before_request'):
                     before_result = route_instance.before_request()
+                    # Handle async before_request hooks
+                    if inspect.iscoroutine(before_result):
+                        before_result = await before_result
                     if before_result is not None:
                         return JSONResponse(content=before_result)
 
@@ -257,11 +260,18 @@ class FastAPIAdapter:
                 params = await self._extract_request_data(request, handler)
 
                 # Call the actual handler with extracted parameters
-                result = handler(**params)
+                # Check if handler is async and await accordingly
+                if inspect.iscoroutinefunction(handler):
+                    result = await handler(**params)
+                else:
+                    result = handler(**params)
 
                 # Call after_request hook if exists
                 if route_instance and hasattr(route_instance, 'after_request'):
                     result = route_instance.after_request(result)
+                    # Handle async after_request hooks
+                    if inspect.iscoroutine(result):
+                        result = await result
 
                 return JSONResponse(content=result)
 
