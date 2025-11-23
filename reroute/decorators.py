@@ -41,6 +41,33 @@ class RateLimitStorage:
         with self._lock:
             self._storage[key] = [ts for ts in self._storage[key] if ts > cutoff]
 
+    def check_and_add(self, key: str, timestamp: float, cutoff: float, max_requests: int) -> tuple[bool, int]:
+        """
+        Atomically check rate limit and add request if allowed.
+
+        Args:
+            key: Rate limit key
+            timestamp: Current request timestamp
+            cutoff: Cutoff time for old requests
+            max_requests: Maximum allowed requests in window
+
+        Returns:
+            Tuple of (allowed: bool, retry_after: int)
+        """
+        with self._lock:
+            # Cleanup old requests
+            self._storage[key] = [ts for ts in self._storage[key] if ts > cutoff]
+
+            # Check if limit exceeded
+            if len(self._storage[key]) >= max_requests:
+                # Calculate retry_after
+                retry_after = int(self._storage[key][0] - cutoff) + 1
+                return False, retry_after
+
+            # Add current request
+            self._storage[key].append(timestamp)
+            return True, 0
+
 
 # Global storage instances
 _rate_limit_storage = RateLimitStorage()
@@ -48,20 +75,44 @@ _cache_storage: Dict[str, Dict[str, Any]] = {}
 _cache_lock = threading.Lock()
 
 
-def rate_limit(limit: str, key_func: Optional[Callable] = None):
+def _cleanup_expired_caches():
+    """Background thread to periodically clean up expired cache entries."""
+    while True:
+        time.sleep(60)  # Check every minute
+        try:
+            with _cache_lock:
+                current_time = time.time()
+                expired_keys = [
+                    k for k, v in _cache_storage.items()
+                    if v["expires_at"] < current_time
+                ]
+                for k in expired_keys:
+                    del _cache_storage[k]
+        except Exception:
+            # Silently continue if cleanup fails
+            pass
+
+
+# Start cache cleanup thread
+_cleanup_thread = threading.Thread(target=_cleanup_expired_caches, daemon=True)
+_cleanup_thread.start()
+
+
+def rate_limit(limit: str, key_func: Optional[Callable] = None, per_ip: bool = False):
     """
     Rate limit decorator for route methods.
 
     Args:
         limit: Rate limit string (e.g., "5/min", "100/hour", "1000/day")
         key_func: Optional function to generate rate limit key (default: uses method name)
+        per_ip: Enable per-IP rate limiting (default: False for global rate limiting)
 
     Usage:
         @rate_limit("3/min")
         def get(self):
             return {"data": "..."}
 
-        @rate_limit("10/hour")
+        @rate_limit("10/hour", per_ip=True)  # Rate limit per client IP
         def post(self):
             return {"created": True}
 
@@ -71,6 +122,11 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None):
 
     Returns:
         429 Too Many Requests if rate limit exceeded
+
+    Note:
+        When per_ip=True, the decorator extracts the client IP from:
+        - Flask: flask.request.remote_addr (or X-Forwarded-For header if behind proxy)
+        - FastAPI: request.client.host (if request param is declared in handler)
     """
     # Parse limit string
     parts = limit.split("/")
@@ -98,32 +154,60 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None):
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            # Extract client IP if per_ip is enabled
+            client_ip = None
+            if per_ip and not key_func:
+                # Try Flask first (thread-local request)
+                try:
+                    from flask import request as flask_request
+                    if flask_request:
+                        # Get IP from X-Forwarded-For if behind proxy, else remote_addr
+                        x_forwarded_for = flask_request.headers.get('X-Forwarded-For')
+                        if x_forwarded_for:
+                            # X-Forwarded-For can contain multiple IPs, first one is the client
+                            client_ip = x_forwarded_for.split(',')[0].strip()
+                        else:
+                            client_ip = flask_request.remote_addr
+                except (ImportError, RuntimeError):
+                    # Flask not available or no request context
+                    pass
+
+                # Try FastAPI (from kwargs) if Flask didn't work
+                if not client_ip:
+                    request = kwargs.get('request')
+                    if request:
+                        # FastAPI Request object
+                        if hasattr(request, 'client') and request.client:
+                            client_ip = request.client.host
+                        # Check X-Forwarded-For header
+                        elif hasattr(request, 'headers'):
+                            x_forwarded_for = request.headers.get('X-Forwarded-For')
+                            if x_forwarded_for:
+                                client_ip = x_forwarded_for.split(',')[0].strip()
+
             # Generate rate limit key
             if key_func:
                 key = f"rate_limit:{func.__name__}:{key_func(*args)}"
+            elif per_ip and client_ip:
+                key = f"rate_limit:{func.__name__}:ip:{client_ip}"
             else:
                 key = f"rate_limit:{func.__name__}:default"
 
             current_time = time.time()
             cutoff_time = current_time - window_seconds
 
-            # Cleanup old requests
-            _rate_limit_storage.cleanup(key, cutoff_time)
+            # Atomically check and add request (prevents race condition)
+            allowed, retry_after = _rate_limit_storage.check_and_add(
+                key, current_time, cutoff_time, max_requests
+            )
 
-            # Get current request count
-            requests = _rate_limit_storage.get_requests(key)
-
-            if len(requests) >= max_requests:
+            if not allowed:
                 # Rate limit exceeded
-                retry_after = int(requests[0] - cutoff_time) + 1
                 return {
                     "error": "Rate limit exceeded",
                     "limit": limit,
                     "retry_after": retry_after
                 }, 429
-
-            # Add current request
-            _rate_limit_storage.add_request(key, current_time)
 
             # Execute the actual function
             return func(*args, **kwargs)
@@ -308,23 +392,61 @@ def timeout(seconds: int):
         This is a basic synchronous implementation.
         For async routes, use asyncio.wait_for instead.
     """
+    import inspect
+    import asyncio
+
     def decorator(func: Callable) -> Callable:
+        # Handle async functions separately
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                try:
+                    # Use asyncio.wait_for for proper async timeout
+                    result = await asyncio.wait_for(
+                        func(*args, **kwargs),
+                        timeout=seconds
+                    )
+                    return result
+                except asyncio.TimeoutError:
+                    return {
+                        "error": "Request timeout",
+                        "limit": f"{seconds}s"
+                    }, 408
+
+            async_wrapper._timeout = seconds
+            return async_wrapper
+
+        # Handle sync functions
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            start_time = time.time()
+            result_container = {}
+            exception_container = {}
 
-            # Execute function
-            result = func(*args, **kwargs)
+            def target():
+                try:
+                    result_container['result'] = func(*args, **kwargs)
+                except Exception as e:
+                    exception_container['exception'] = e
 
-            elapsed = time.time() - start_time
-            if elapsed > seconds:
+            # Run function in thread with timeout
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout=seconds)
+
+            if thread.is_alive():
+                # Function is still running - timeout occurred
+                # Note: We can't kill the thread, but we return timeout response
                 return {
                     "error": "Request timeout",
-                    "elapsed": f"{elapsed:.2f}s",
                     "limit": f"{seconds}s"
                 }, 408
 
-            return result
+            # Check if exception occurred
+            if 'exception' in exception_container:
+                raise exception_container['exception']
+
+            return result_container.get('result')
 
         wrapper._timeout = seconds
         return wrapper

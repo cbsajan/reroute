@@ -7,9 +7,12 @@ Discovers and registers routes from the app/routes directory structure.
 from pathlib import Path
 from typing import Dict, List, Callable, Optional, Any
 import inspect
+import logging
 from reroute.core.loader import RouteLoader
 from reroute.core.base import RouteBase
 from reroute.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class Router:
@@ -108,7 +111,7 @@ class Router:
             module = self.loader.load_module(page_file)
 
             if module is None:
-                print(f"Warning: Could not load route {route_path}")
+                logger.warning(f"Could not load route {route_path}")
                 continue
 
             # Extract HTTP method handlers from the module
@@ -157,7 +160,7 @@ class Router:
                 }
                 if self.config.VERBOSE_LOGGING:
                     route_type = "class-based" if route_instance else "function-based"
-                    print(f"Registered {route_type} route: {route_path} with methods: {list(route_handlers.keys())}")
+                    logger.info(f"Registered {route_type} route: {route_path} with methods: {list(route_handlers.keys())}")
 
     def get_route_handler(self, path: str, method: str) -> Callable:
         """

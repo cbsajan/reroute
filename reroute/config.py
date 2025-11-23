@@ -5,6 +5,7 @@ Central configuration for the REROUTE framework.
 """
 
 import os
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -14,6 +15,8 @@ try:
     DOTENV_AVAILABLE = True
 except ImportError:
     DOTENV_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -156,12 +159,12 @@ class Config:
             if env_path.exists():
                 load_dotenv(env_path, override=cls.Env.override)
                 if cls.VERBOSE_LOGGING:
-                    print(f"[REROUTE] Loaded environment from: {env_path}")
+                    logger.info(f"Loaded environment from: {env_path}")
             elif cls.VERBOSE_LOGGING:
-                print(f"[REROUTE] .env file not found: {env_path}")
+                logger.info(f".env file not found: {env_path}")
         elif not DOTENV_AVAILABLE and cls.Env.auto_load:
             if cls.VERBOSE_LOGGING:
-                print("[REROUTE] python-dotenv not installed. Install with: pip install python-dotenv")
+                logger.warning("python-dotenv not installed. Install with: pip install python-dotenv")
 
         # Helper functions for type conversion
         def parse_bool(value: str) -> bool:
@@ -179,6 +182,25 @@ class Config:
             """Parse comma-separated list from string"""
             return [item.strip() for item in str(value).split(',') if item.strip()]
 
+        # Whitelist of allowed config keys (security: prevent arbitrary attribute setting)
+        ALLOWED_CONFIG_KEYS = {
+            # API Configuration
+            'API_BASE_PATH',
+
+            # Framework Behavior
+            'DEBUG', 'VERBOSE_LOGGING', 'LOG_LEVEL', 'AUTO_RELOAD',
+
+            # Server Configuration
+            'HOST', 'PORT',
+
+            # CORS Configuration
+            'ENABLE_CORS', 'CORS_ALLOW_ORIGINS', 'CORS_ALLOW_METHODS',
+            'CORS_ALLOW_HEADERS', 'CORS_ALLOW_CREDENTIALS'
+        }
+
+        # Valid log levels for validation
+        VALID_LOG_LEVELS = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
+
         # Auto-map REROUTE_* environment variables to Config attributes
         for env_key, env_value in os.environ.items():
             # Only process REROUTE_* prefixed variables
@@ -188,10 +210,18 @@ class Config:
             # Remove REROUTE_ prefix to get attribute name
             attr_name = env_key.replace('REROUTE_', '', 1)
 
+            # Security: Check against whitelist first
+            if attr_name not in ALLOWED_CONFIG_KEYS:
+                logger.warning(
+                    f"Config key not in whitelist: {env_key}. "
+                    f"Only REROUTE_* variables for user-configurable settings are allowed."
+                )
+                continue
+
             # Check if this attribute exists in Config
             if not hasattr(cls, attr_name):
                 if cls.VERBOSE_LOGGING:
-                    print(f"[REROUTE] Warning: Unknown config variable {env_key}")
+                    logger.warning(f"Unknown config variable: {env_key}")
                 continue
 
             # Get current attribute value to determine type
@@ -209,8 +239,20 @@ class Config:
             elif isinstance(current_value, list):
                 setattr(cls, attr_name, parse_list(env_value))
             else:
-                # String or other types - set directly
-                setattr(cls, attr_name, env_value)
+                # String or other types - validate and set
+                # Special validation for LOG_LEVEL
+                if attr_name == 'LOG_LEVEL':
+                    env_value_upper = env_value.upper()
+                    if env_value_upper not in VALID_LOG_LEVELS:
+                        logger.warning(
+                            f"Invalid LOG_LEVEL: {env_value}. "
+                            f"Must be one of: {', '.join(sorted(VALID_LOG_LEVELS))}. "
+                            f"Using default: {current_value}"
+                        )
+                        continue
+                    setattr(cls, attr_name, env_value_upper)
+                else:
+                    setattr(cls, attr_name, env_value)
 
         return cls
 

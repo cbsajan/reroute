@@ -5,9 +5,12 @@ Handles secure dynamic loading of route modules from the app/routes directory.
 """
 
 import importlib.util
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class RouteLoader:
@@ -44,25 +47,35 @@ class RouteLoader:
             if not self._is_safe_path(module_path):
                 raise ValueError(f"Path traversal detected: {module_path}")
 
-            # Create module spec
+            # Create unique module name based on full path to avoid collisions
+            # e.g., "app/routes/users/page.py" becomes "routes.users.page"
+            relative_path = module_path.relative_to(self.routes_dir.parent)
+            module_name = str(relative_path).replace('\\', '.').replace('/', '.')[:-3]  # Remove .py extension
+
+            # Create module spec with unique name
             spec = importlib.util.spec_from_file_location(
-                module_path.stem,
+                module_name,
                 module_path
             )
 
             if spec is None or spec.loader is None:
                 return None
 
-            # Load the module
+            # Load the module with unique name
             module = importlib.util.module_from_spec(spec)
-            sys.modules[module_path.stem] = module
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
 
             return module
 
-        except Exception as e:
-            print(f"Error loading module {module_path}: {e}")
+        except (ImportError, AttributeError, SyntaxError, ValueError) as e:
+            # Catch specific module loading errors
+            logger.warning(f"Failed to load route module {module_path}: {e}")
             return None
+        except Exception as e:
+            # Unexpected error - log and re-raise for visibility
+            logger.error(f"Unexpected error loading module {module_path}: {e}", exc_info=True)
+            raise
 
     def _is_safe_path(self, path: Path) -> bool:
         """
@@ -76,10 +89,22 @@ class RouteLoader:
             True if path is safe, False otherwise
         """
         try:
-            # Resolve to absolute path and check it's within routes_dir
-            resolved_path = path.resolve()
-            resolved_routes_dir = self.routes_dir.resolve()
+            # Resolve both paths to absolute (strict=True raises if path doesn't exist)
+            resolved_path = path.resolve(strict=True)
+            resolved_routes_dir = self.routes_dir.resolve(strict=True)
 
-            return resolved_routes_dir in resolved_path.parents or resolved_path == resolved_routes_dir
-        except Exception:
+            # Check for symlinks in the path
+            if resolved_path.is_symlink() or any(p.is_symlink() for p in resolved_path.parents):
+                return False
+
+            # Ensure path is within routes_dir using relative_to
+            # This will raise ValueError if path is not within routes_dir
+            try:
+                resolved_path.relative_to(resolved_routes_dir)
+                return True
+            except ValueError:
+                return False
+
+        except (OSError, ValueError, RuntimeError):
+            # Catch specific exceptions: file not found, permission denied, etc.
             return False

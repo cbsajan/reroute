@@ -5,9 +5,12 @@ Integrates REROUTE's file-based routing with Flask.
 """
 
 import inspect
+import logging
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
+
+logger = logging.getLogger(__name__)
 
 # Initialize colorama for Windows console colors
 try:
@@ -500,6 +503,14 @@ class FlaskAdapter:
         # Convert path parameters to Flask format
         # REROUTE uses {param}, Flask uses <param>
         flask_path = full_path.replace('{', '<').replace('}', '>')
+
+        # Warn if handler is async (Flask doesn't support async natively)
+        if inspect.iscoroutinefunction(handler):
+            logger.warning(
+                f"Async handler detected for {method} {full_path}. "
+                f"Flask does not support async handlers natively. "
+                f"Consider using FastAPI instead, or use a sync handler with Flask."
+            )
 
         def flask_handler(**path_params):
             try:
