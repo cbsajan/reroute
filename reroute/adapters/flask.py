@@ -92,24 +92,35 @@ class FlaskAdapter:
                 # Import page templates and disable ReDoc (broken CDN URL)
                 from spectree import page
 
+                # Extract base path from DOCS_PATH for Spectree
+                # Spectree appends /swagger/, /scalar/, etc. to the base path
+                # IMPORTANT: path must NOT be empty string, or Spectree filters out ALL routes
+                # If DOCS_PATH is "/docs", use "apidoc" -> generates /apidoc/swagger/
+                # If DOCS_PATH is "/api/docs", use "api" -> generates /api/swagger/
+                docs_path = self.config.OpenAPI.DOCS_PATH
+                if docs_path:
+                    # Extract first meaningful segment (e.g., "/api/docs" -> "api", "/docs" -> "docs")
+                    segments = [s for s in docs_path.strip('/').split('/') if s]
+                    base_path = segments[0] if segments else 'apidoc'
+                else:
+                    # Default fallback
+                    base_path = 'apidoc'
+
+                # Fix Spectree template bug: Spectree registers route as //openapi.json when path=''
+                # This causes browser to treat it as protocol-relative URL (breaks)
+                # Solution: Use window.location.origin + cleaned spec_url
+                swagger_template = page.PAGE_TEMPLATES['swagger']
+                swagger_template_fixed = swagger_template.replace(
+                    'url: "{spec_url}"',
+                    'url: window.location.origin + "{spec_url}".replace(/\\/\\//g, "/")'
+                )
+
                 # Create custom page templates without ReDoc
                 custom_page_templates = {
-                    'swagger': page.PAGE_TEMPLATES['swagger'],
+                    'swagger': swagger_template_fixed,
                     'scalar': page.PAGE_TEMPLATES['scalar']
                     # ReDoc is disabled - CDN URL is broken (redoc@next returns 404)
                 }
-
-                # Extract base path from DOCS_PATH
-                # Spectree appends /swagger/, /scalar/, etc. to the base path
-                # If DOCS_PATH is "/docs", we use empty path so Spectree generates /swagger/
-                # If DOCS_PATH is "/api/docs", we use "api" so Spectree generates /api/swagger/
-                docs_path = self.config.OpenAPI.DOCS_PATH
-                if docs_path and docs_path != "/docs":
-                    # Extract base path (e.g., "/api/docs" -> "api")
-                    base_path = docs_path.strip('/').rsplit('/', 1)[0] if '/' in docs_path.strip('/') else ''
-                else:
-                    # Use empty path for /docs
-                    base_path = ''
 
                 self.spec = SpecTree(
                     'flask',
@@ -313,9 +324,16 @@ class FlaskAdapter:
         if json_model:
             validation['json'] = json_model
 
-        # Add default 200 response
-        if self.Response:
-            validation['resp'] = self.Response(HTTP_200=None)
+        # Add a default response model if none exists
+        # This ensures ALL routes appear in Swagger UI, even without explicit models
+        if self.Response and not validation:
+            # Create a generic response model for routes without validation
+            GenericResponse = create_model(
+                f'{func.__name__}_Response',
+                __base__=BaseModel,
+                **{'data': (dict, Field(default={}, description="Response data"))}
+            )
+            validation['resp'] = self.Response(HTTP_200=GenericResponse)
 
         return validation
 
@@ -458,6 +476,12 @@ class FlaskAdapter:
         # Determine Swagger tag/category
         tag = self._get_route_tag(path, route_instance)
 
+        # Apply Spectree validation to handler FIRST (before wrapping in closure)
+        # This allows Spectree to track the validated handler for OpenAPI generation
+        if self.spec:
+            validation = self._extract_validation(handler)
+            handler = self.spec.validate(**validation, tags=[tag] if tag else [])(handler)
+
         # Apply base path if configured
         base_path = getattr(self.config, 'API_BASE_PATH', '')
         if base_path:
@@ -520,23 +544,25 @@ class FlaskAdapter:
                     return error_dict, 500
                 return self.jsonify(error_dict), 500
 
-        # Copy docstring from original handler to wrapper for OpenAPI docs
+        # Copy docstring from handler to wrapper for OpenAPI docs
         if handler.__doc__:
             flask_handler.__doc__ = handler.__doc__
         else:
             # Generate a basic docstring if none exists
             flask_handler.__doc__ = f"{method} {full_path}"
 
+        # Copy Spectree metadata attributes from validated handler to flask_handler closure
+        # (handler was already validated at the beginning of this function if self.spec exists)
+        if self.spec:
+            # These attributes are set by spec.validate() and used by Spectree for OpenAPI generation
+            spectree_attrs = ['_decorator', 'deprecated', 'operation_id',
+                             'path_parameter_descriptions', 'security', 'tags']
+            for attr in spectree_attrs:
+                if hasattr(handler, attr):
+                    setattr(flask_handler, attr, getattr(handler, attr))
+
         # Set endpoint name to avoid conflicts (combine path + method)
         endpoint_name = f"{full_path}_{method}".replace('/', '_').replace('<', '').replace('>', '')
-
-        # Apply Spectree validation if OpenAPI is enabled
-        if self.spec:
-            # Extract validation models from handler signature
-            validation = self._extract_validation(handler)
-            if validation:
-                # Wrap with Spectree validation
-                flask_handler = self.spec.validate(**validation, tags=[tag] if tag else [])(flask_handler)
 
         # Register with Flask
         self.app.add_url_rule(
