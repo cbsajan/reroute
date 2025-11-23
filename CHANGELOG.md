@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-11-23
+
 ## [0.1.5] - 2025-11-23
 
 ## [0.1.4] - 2025-11-21
@@ -233,6 +235,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-11-23
+
 ## [0.1.5] - 2025-11-23
 
 ## [0.1.4] - 2025-11-21
@@ -408,3 +412,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.5...HEAD
 [0.1.5]: https://github.com/cbsajan/reroute/compare/v...v0.1.5
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/cbsajan/reroute/compare/v...v0.1.6
