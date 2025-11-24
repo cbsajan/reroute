@@ -26,11 +26,11 @@ def init():
 
     Creates migrations directory and configuration files.
     """
-    click.echo("\n🗄️  Initializing database migrations...")
+    click.echo("\n[DB] Initializing database migrations...")
 
     migrations_dir = Path("migrations")
     if migrations_dir.exists():
-        click.secho("\n⚠️  Migrations directory already exists!", fg='yellow')
+        click.secho("\n[WARNING] Migrations directory already exists!", fg='yellow')
         return
 
     try:
@@ -132,20 +132,20 @@ else:
 """
         (migrations_dir / "env.py").write_text(env_py_content)
 
-        click.secho("\n✅ Migrations initialized successfully!", fg='green')
-        click.echo("\n📁 Created:")
+        click.secho("\n[SUCCESS] Migrations initialized successfully!", fg='green')
+        click.echo("\n[CREATED]")
         click.echo("  - migrations/")
         click.echo("  - migrations/versions/")
         click.echo("  - migrations/env.py")
         click.echo("  - alembic.ini")
 
-        click.echo("\n💡 Next steps:")
+        click.echo("\n[NEXT STEPS]")
         click.secho("  reroute db migrate -m 'Initial migration'", fg='cyan')
         click.secho("  reroute db upgrade", fg='cyan')
         click.echo()
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
         sys.exit(1)
 
 
@@ -158,7 +158,7 @@ def migrate(message):
     Example:
         reroute db migrate -m "Add users table"
     """
-    click.echo(f"\n📝 Creating migration: {message}")
+    click.echo(f"\n[MIGRATE] Creating migration: {message}")
 
     try:
         import subprocess
@@ -167,7 +167,7 @@ def migrate(message):
         try:
             import alembic
         except ImportError:
-            click.secho("\n❌ Alembic not installed!", fg='red')
+            click.secho("\n[ERROR] Alembic not installed!", fg='red')
             click.echo("Install with: pip install alembic")
             sys.exit(1)
 
@@ -179,15 +179,15 @@ def migrate(message):
         )
 
         if result.returncode == 0:
-            click.secho("\n✅ Migration created successfully!", fg='green')
+            click.secho("\n[SUCCESS] Migration created successfully!", fg='green')
             click.echo(result.stdout)
         else:
-            click.secho(f"\n❌ Error creating migration:", fg='red')
+            click.secho(f"\n[ERROR] Error creating migration:", fg='red')
             click.echo(result.stderr)
             sys.exit(1)
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
         sys.exit(1)
 
 
@@ -198,7 +198,7 @@ def upgrade():
 
     Applies migrations to the database.
     """
-    click.echo("\n⬆️  Applying migrations...")
+    click.echo("\n[UPGRADE] Applying migrations...")
 
     try:
         import subprocess
@@ -210,15 +210,15 @@ def upgrade():
         )
 
         if result.returncode == 0:
-            click.secho("\n✅ Migrations applied successfully!", fg='green')
+            click.secho("\n[SUCCESS] Migrations applied successfully!", fg='green')
             click.echo(result.stdout)
         else:
-            click.secho(f"\n❌ Error applying migrations:", fg='red')
+            click.secho(f"\n[ERROR] Error applying migrations:", fg='red')
             click.echo(result.stderr)
             sys.exit(1)
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
         sys.exit(1)
 
 
@@ -231,7 +231,7 @@ def downgrade(steps):
     Example:
         reroute db downgrade --steps 1
     """
-    click.echo(f"\n⬇️  Rolling back {steps} migration(s)...")
+    click.echo(f"\n[DOWNGRADE] Rolling back {steps} migration(s)...")
 
     try:
         import subprocess
@@ -243,15 +243,15 @@ def downgrade(steps):
         )
 
         if result.returncode == 0:
-            click.secho("\n✅ Rollback completed!", fg='green')
+            click.secho("\n[SUCCESS] Rollback completed!", fg='green')
             click.echo(result.stdout)
         else:
-            click.secho(f"\n❌ Error during rollback:", fg='red')
+            click.secho(f"\n[ERROR] Error during rollback:", fg='red')
             click.echo(result.stderr)
             sys.exit(1)
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
         sys.exit(1)
 
 
@@ -268,14 +268,14 @@ def current():
         )
 
         if result.returncode == 0:
-            click.echo("\n📍 Current migration:")
+            click.echo("\n[CURRENT] Current migration:")
             click.echo(result.stdout)
         else:
-            click.secho(f"\n❌ Error:", fg='red')
+            click.secho(f"\n[ERROR]", fg='red')
             click.echo(result.stderr)
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
 
 
 @db.command()
@@ -291,11 +291,11 @@ def history():
         )
 
         if result.returncode == 0:
-            click.echo("\n📜 Migration history:")
+            click.echo("\n[HISTORY] Migration history:")
             click.echo(result.stdout)
         else:
-            click.secho(f"\n❌ Error:", fg='red')
+            click.secho(f"\n[ERROR]", fg='red')
             click.echo(result.stderr)
 
     except Exception as e:
-        click.secho(f"\n❌ Error: {e}", fg='red')
+        click.secho(f"\n[ERROR] {e}", fg='red')
