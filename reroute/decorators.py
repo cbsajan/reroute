@@ -329,41 +329,158 @@ def requires(*roles: str, check_func: Optional[Callable] = None):
     return decorator
 
 
-def validate(schema: Dict[str, type] = None, validator_func: Optional[Callable] = None):
+def validate(schema: Dict[str, type] = None, validator_func: Optional[Callable] = None, required_fields: List[str] = None):
     """
     Request validation decorator.
 
     Args:
         schema: Validation schema (dict mapping field names to types)
-        validator_func: Custom validation function that returns True if valid
+        validator_func: Custom validation function that returns (bool, error_message)
+        required_fields: List of required field names
 
     Usage:
         @validate(schema={"name": str, "age": int, "email": str})
-        def post(self):
+        def post(self, data):
             return {"created": True}
 
-        @validate(validator_func=lambda self, data: "email" in data and "@" in data["email"])
-        def post(self):
+        @validate(required_fields=["email", "password"])
+        def post(self, data):
+            return {"created": True}
+
+        @validate(validator_func=lambda data: (
+            ("@" in data.get("email", ""), "Invalid email format")
+            if "email" in data else (True, None)
+        ))
+        def post(self, data):
             return {"created": True}
 
     Returns:
         400 Bad Request if validation fails
+
+    Note:
+        Validation looks for data in kwargs under common parameter names:
+        'data', 'body', 'json', 'user', 'item', etc.
+        For Pydantic models, use the params system (Body, Query, etc.) instead.
     """
+    import inspect
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # Validation logic placeholder
-            # In real implementation, would validate request body
-            # Against schema or using validator_func
+            # Try to find request data in kwargs
+            # Common parameter names used in route handlers
+            data_param_names = ['data', 'body', 'json', 'payload', 'request_data',
+                               'user', 'item', 'model', 'params']
 
-            # This pattern allows routes to declare their validation requirements
-            # The adapter (FastAPI/Flask) would handle actual validation
+            request_data = None
+            data_param_name = None
 
+            # Search for data in kwargs
+            for param_name in data_param_names:
+                if param_name in kwargs:
+                    request_data = kwargs[param_name]
+                    data_param_name = param_name
+                    break
+
+            # If no data found and schema/required_fields specified, try to get from Pydantic model
+            if request_data is None:
+                # Check if any kwarg is a Pydantic model (has model_dump method)
+                for param_name, param_value in kwargs.items():
+                    if hasattr(param_value, 'model_dump'):
+                        request_data = param_value.model_dump()
+                        data_param_name = param_name
+                        break
+                    elif hasattr(param_value, 'dict'):  # Pydantic v1
+                        request_data = param_value.dict()
+                        data_param_name = param_name
+                        break
+
+            # Convert dict-like objects to dict for validation
+            if request_data is not None and hasattr(request_data, '__dict__') and not isinstance(request_data, dict):
+                try:
+                    request_data = vars(request_data)
+                except TypeError:
+                    pass  # Keep original if conversion fails
+
+            # Perform validation if data was found
+            if request_data is not None:
+                # Validate required fields
+                if required_fields:
+                    missing_fields = [field for field in required_fields if field not in request_data]
+                    if missing_fields:
+                        return {
+                            "error": "Validation failed",
+                            "message": f"Missing required fields: {', '.join(missing_fields)}",
+                            "missing_fields": missing_fields
+                        }, 400
+
+                # Validate schema (type checking)
+                if schema:
+                    validation_errors = []
+                    for field_name, expected_type in schema.items():
+                        if field_name in request_data:
+                            field_value = request_data[field_name]
+                            # Check type
+                            if not isinstance(field_value, expected_type):
+                                actual_type = type(field_value).__name__
+                                expected_type_name = expected_type.__name__
+                                validation_errors.append(
+                                    f"Field '{field_name}': expected {expected_type_name}, got {actual_type}"
+                                )
+
+                    if validation_errors:
+                        return {
+                            "error": "Validation failed",
+                            "message": "Type validation errors",
+                            "validation_errors": validation_errors
+                        }, 400
+
+                # Custom validator function
+                if validator_func:
+                    try:
+                        # Validator should return (is_valid: bool, error_message: str)
+                        if len(args) > 0:
+                            # If called as method (self is first arg)
+                            result = validator_func(args[0], request_data)
+                        else:
+                            result = validator_func(request_data)
+
+                        # Handle different return types
+                        if isinstance(result, tuple):
+                            is_valid, error_message = result
+                        else:
+                            is_valid = bool(result)
+                            error_message = "Custom validation failed"
+
+                        if not is_valid:
+                            return {
+                                "error": "Validation failed",
+                                "message": error_message or "Custom validation failed"
+                            }, 400
+                    except Exception as e:
+                        logger.error(f"Validator function error: {e}")
+                        return {
+                            "error": "Validation error",
+                            "message": f"Validator function raised exception: {str(e)}"
+                        }, 400
+
+            elif schema or required_fields:
+                # Data is required but not found
+                logger.warning(
+                    f"@validate decorator on {func.__name__} couldn't find request data. "
+                    f"Looking for kwargs: {', '.join(data_param_names)}"
+                )
+
+            # All validation passed or no validation needed
             return func(*args, **kwargs)
 
         # Store metadata for documentation and potential auto-validation
         wrapper._validation_schema = schema
         wrapper._validator_func = validator_func
+        wrapper._required_fields = required_fields
         return wrapper
 
     return decorator
@@ -382,18 +499,26 @@ def timeout(seconds: int):
             return {"data": self.slow_operation()}
 
         @timeout(30)
-        def post(self):
-            return self.process_large_file()
+        async def post(self):  # Works with async too
+            return await self.process_large_file()
 
     Returns:
         408 Request Timeout if execution exceeds limit
 
     Note:
-        This is a basic synchronous implementation.
-        For async routes, use asyncio.wait_for instead.
+        - Async handlers: Uses asyncio.wait_for() for true timeout
+        - Sync handlers on Unix: Uses signal.alarm() for true timeout
+        - Sync handlers on Windows: Thread-based timeout (function continues in background)
+
+        Recommendation: Use async handlers for guaranteed timeout behavior.
     """
     import inspect
     import asyncio
+    import platform
+    import sys
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     def decorator(func: Callable) -> Callable:
         # Handle async functions separately
@@ -417,8 +542,43 @@ def timeout(seconds: int):
             return async_wrapper
 
         # Handle sync functions
+        # Use signal-based timeout on Unix systems for true timeout
+        if platform.system() != 'Windows' and hasattr(sys.modules.get('signal', None), 'alarm'):
+            import signal
+
+            @functools.wraps(func)
+            def unix_wrapper(*args, **kwargs):
+                def timeout_handler(signum, frame):
+                    raise TimeoutError(f"Function exceeded {seconds}s timeout")
+
+                # Set signal alarm
+                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(seconds)
+
+                try:
+                    result = func(*args, **kwargs)
+                    signal.alarm(0)  # Cancel alarm
+                    return result
+                except TimeoutError as e:
+                    signal.alarm(0)  # Cancel alarm
+                    return {
+                        "error": "Request timeout",
+                        "limit": f"{seconds}s",
+                        "message": str(e)
+                    }, 408
+                except Exception as e:
+                    signal.alarm(0)  # Cancel alarm
+                    raise
+                finally:
+                    # Restore old handler
+                    signal.signal(signal.SIGALRM, old_handler)
+
+            unix_wrapper._timeout = seconds
+            return unix_wrapper
+
+        # Windows fallback: Thread-based timeout (function continues in background)
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def windows_wrapper(*args, **kwargs):
             result_container = {}
             exception_container = {}
 
@@ -436,10 +596,15 @@ def timeout(seconds: int):
 
             if thread.is_alive():
                 # Function is still running - timeout occurred
-                # Note: We can't kill the thread, but we return timeout response
+                # WARNING: Thread cannot be killed, continues in background
+                logger.warning(
+                    f"Timeout occurred for {func.__name__} but function continues in background "
+                    f"(Windows limitation). Consider using async handlers for true timeout."
+                )
                 return {
                     "error": "Request timeout",
-                    "limit": f"{seconds}s"
+                    "limit": f"{seconds}s",
+                    "warning": "Function continues in background (Windows limitation)"
                 }, 408
 
             # Check if exception occurred
@@ -448,8 +613,8 @@ def timeout(seconds: int):
 
             return result_container.get('result')
 
-        wrapper._timeout = seconds
-        return wrapper
+        windows_wrapper._timeout = seconds
+        return windows_wrapper
 
     return decorator
 

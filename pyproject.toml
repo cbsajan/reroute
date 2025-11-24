@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reroute"
-version = "0.1.6"
+version = "0.1.7"
 description = "File-based routing for Python backend frameworks (FastAPI, Flask)"
 readme = "README.md"
 requires-python = ">=3.8"
