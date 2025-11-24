@@ -36,9 +36,9 @@ class AppConfig(Config):
 
         # Documentation Endpoints
         DOCS_PATH = "/docs"            # Swagger UI endpoint
-        {% if framework == 'fastapi' %}REDOC_PATH = None         # ReDoc endpoint (FastAPI only)
-        {% else %}REDOC_PATH = None              # ReDoc disabled for Flask (broken CDN)
-        {% endif %}
+        {%- if framework == 'fastapi' -%}REDOC_PATH = None         # ReDoc endpoint (FastAPI only)
+        {%- else -%}REDOC_PATH = None              # ReDoc disabled for Flask (broken CDN)
+        {%- endif -%}
         JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
 
         # API Metadata
