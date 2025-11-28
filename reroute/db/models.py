@@ -112,10 +112,13 @@ class Model(Base):
             session: SQLAlchemy session
             limit: Maximum number of records
             offset: Number of records to skip
-            order_by: Column name to order by
+            order_by: Column name to order by (must be a valid column)
 
         Returns:
             List of model instances
+
+        Raises:
+            ValueError: If order_by is not a valid column name
 
         Example:
             users = User.get_all(session, limit=10, offset=0)
@@ -124,8 +127,28 @@ class Model(Base):
         query = session.query(cls)
 
         if order_by:
-            if hasattr(cls, order_by):
-                query = query.order_by(getattr(cls, order_by))
+            # Security: Validate that order_by is an actual column attribute
+            # This prevents SQL injection via arbitrary attribute access
+            valid_columns = {col.key for col in inspect(cls).mapper.column_attrs}
+
+            if order_by not in valid_columns:
+                # Security logging: Log potential SQL injection attempt
+                try:
+                    from reroute.logging import security_logger
+                    security_logger.log_injection_attempt(
+                        injection_type="SQL",
+                        payload=order_by,
+                        context=f"Invalid order_by in {cls.__name__}.get_all()"
+                    )
+                except ImportError:
+                    pass
+
+                raise ValueError(
+                    f"Invalid order_by column: '{order_by}'. "
+                    f"Valid columns are: {', '.join(sorted(valid_columns))}"
+                )
+
+            query = query.order_by(getattr(cls, order_by))
 
         return query.limit(limit).offset(offset).all()
 

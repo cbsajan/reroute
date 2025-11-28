@@ -231,13 +231,26 @@ def downgrade(steps):
     Example:
         reroute db downgrade --steps 1
     """
-    click.echo(f"\n[DOWNGRADE] Rolling back {steps} migration(s)...")
+    # Security: Validate steps parameter to prevent command injection
+    try:
+        steps_int = int(steps)
+        if steps_int < 1:
+            click.secho("\n[ERROR] Steps must be a positive integer (>= 1)", fg='red')
+            sys.exit(1)
+        if steps_int > 100:
+            click.secho("\n[ERROR] Steps cannot exceed 100 for safety", fg='red')
+            sys.exit(1)
+    except (ValueError, TypeError):
+        click.secho(f"\n[ERROR] Invalid steps value: '{steps}'. Must be a positive integer.", fg='red')
+        sys.exit(1)
+
+    click.echo(f"\n[DOWNGRADE] Rolling back {steps_int} migration(s)...")
 
     try:
         import subprocess
 
         result = subprocess.run(
-            ['alembic', 'downgrade', f'-{steps}'],
+            ['alembic', 'downgrade', f'-{steps_int}'],
             capture_output=True,
             text=True
         )

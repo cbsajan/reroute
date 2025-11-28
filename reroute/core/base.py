@@ -63,17 +63,54 @@ class RouteBase:
         """
         return response
 
-    def on_error(self, error: Exception) -> Dict[str, Any]:
+    def on_error(self, error: Exception, debug: bool = False) -> Dict[str, Any]:
         """
         Hook called when an error occurs.
 
+        Security: In production (debug=False), error details are sanitized
+        to prevent information disclosure (file paths, credentials, internals).
+
         Args:
             error: The exception that occurred
+            debug: If True, include full error details (development only)
 
         Returns:
-            Error response
+            Error response (sanitized in production)
         """
-        return {
-            "error": str(error),
-            "type": type(error).__name__
-        }
+        import logging
+        import os
+
+        logger = logging.getLogger(__name__)
+
+        # Always log the full error for debugging
+        logger.error(f"Route error: {type(error).__name__}: {error}", exc_info=True)
+
+        # Check debug mode from environment or parameter
+        is_debug = debug or os.getenv('REROUTE_DEBUG', '').lower() in ('true', '1', 'yes')
+
+        if is_debug:
+            # Development: Include full error details
+            return {
+                "error": str(error),
+                "type": type(error).__name__
+            }
+        else:
+            # Production: Sanitize error response to prevent information disclosure
+            # Map common exceptions to safe error messages
+            error_type = type(error).__name__
+
+            safe_messages = {
+                'ValueError': 'Invalid input provided',
+                'TypeError': 'Invalid request format',
+                'KeyError': 'Missing required field',
+                'AttributeError': 'Internal server error',
+                'FileNotFoundError': 'Resource not found',
+                'PermissionError': 'Access denied',
+                'ConnectionError': 'Service temporarily unavailable',
+                'TimeoutError': 'Request timed out',
+            }
+
+            return {
+                "error": safe_messages.get(error_type, "An unexpected error occurred"),
+                "type": "ServerError"  # Don't expose actual exception type
+            }

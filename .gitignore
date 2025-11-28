@@ -89,3 +89,4 @@ Thumbs.db
 # Logs
 *.log
 logs/
+/update_version.bat

@@ -106,6 +106,10 @@ class Config:
     CORS_ALLOW_HEADERS = ["*"]  # List of allowed headers or ["*"] for all
     CORS_ALLOW_CREDENTIALS = False
 
+    # Health Check Configuration
+    HEALTH_CHECK_ENABLED = True  # Enable /health endpoint for load balancers
+    HEALTH_CHECK_PATH = "/health"  # Path for health check endpoint
+
     def __init_subclass__(cls, **kwargs):
         """
         Validate that child classes don't override FINAL attributes.
@@ -195,7 +199,10 @@ class Config:
 
             # CORS Configuration
             'ENABLE_CORS', 'CORS_ALLOW_ORIGINS', 'CORS_ALLOW_METHODS',
-            'CORS_ALLOW_HEADERS', 'CORS_ALLOW_CREDENTIALS'
+            'CORS_ALLOW_HEADERS', 'CORS_ALLOW_CREDENTIALS',
+
+            # Health Check Configuration
+            'HEALTH_CHECK_ENABLED', 'HEALTH_CHECK_PATH'
         }
 
         # Valid log levels for validation

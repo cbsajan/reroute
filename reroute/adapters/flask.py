@@ -157,6 +157,28 @@ class FlaskAdapter:
         # Setup CORS
         self._setup_cors()
 
+        # Setup health check endpoint
+        self._setup_health_check()
+
+    def _setup_health_check(self) -> None:
+        """Setup health check endpoint for load balancers."""
+        if not self.config.HEALTH_CHECK_ENABLED:
+            return
+
+        health_path = self.config.HEALTH_CHECK_PATH
+
+        @self.app.route(health_path, methods=['GET'])
+        def health_check():
+            """Health check endpoint for load balancers and monitoring."""
+            return self.jsonify({
+                "status": "healthy",
+                "service": self.app.name or "REROUTE API",
+                "version": "1.0.0"
+            })
+
+        if self.config.VERBOSE_LOGGING:
+            click.secho(f"[OK] Health check endpoint: {health_path}", fg='green')
+
     def register_routes(self) -> None:
         """
         Discover and register all REROUTE file-based routes with Flask.
