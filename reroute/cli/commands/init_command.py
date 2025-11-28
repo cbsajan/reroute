@@ -9,7 +9,12 @@ from InquirerPy import inquirer
 from pathlib import Path
 import sys
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from packaging import version
+from reroute import __version__
 from .helpers import validate_project_name
+
+# Feature gate version for database support
+DB_FEATURE_VERSION = "0.2.0"
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -93,6 +98,26 @@ def init(name, framework, config, host, port, description):
     ).execute()
     include_tests = generate_tests == 'Yes'
 
+    # Database setup prompt (Feature gated - available from 0.2.0)
+    db_type = None
+    if version.parse(__version__) >= version.parse(DB_FEATURE_VERSION):
+        include_db = inquirer.confirm(
+            message="Would you like to set up a database?",
+            default=False
+        ).execute()
+
+        if include_db:
+            db_type = inquirer.select(
+                message="Which database would you like to use?",
+                choices=[
+                    {'name': 'PostgreSQL', 'value': 'postgresql'},
+                    {'name': 'MySQL', 'value': 'mysql'},
+                    {'name': 'SQLite (Local file)', 'value': 'sqlite'},
+                    {'name': 'MongoDB (NoSQL)', 'value': 'mongodb'}
+                ],
+                default='postgresql'
+            ).execute()
+
     # Review section - show configuration
     click.secho("\n" + "="*50, fg='yellow', bold=True)
     click.secho("Project Configuration Review", fg='yellow', bold=True)
@@ -107,6 +132,9 @@ def init(name, framework, config, host, port, description):
     click.secho(str(port), fg='green')
     click.secho(f"  Include Tests: ", fg='blue', nl=False)
     click.secho("Yes" if include_tests else "No", fg='green')
+    if db_type:
+        click.secho(f"  Database: ", fg='blue', nl=False)
+        click.secho(db_type.upper(), fg='green', bold=True)
     click.secho("="*50 + "\n", fg='yellow', bold=True)
 
     # Ask for confirmation
@@ -146,17 +174,38 @@ def init(name, framework, config, host, port, description):
             click.secho("Creating test cases...", fg='blue')
             _generate_tests(project_dir, framework)
 
+        # Generate .env.example file
+        click.secho("Creating .env.example...", fg='blue')
+        _generate_env_file(project_dir, name, db_type)
+
+        # Generate database files if enabled
+        if db_type:
+            click.secho("Creating database configuration...", fg='blue')
+            _generate_database_files(project_dir, name, db_type)
+
         # Create requirements.txt (legacy, will be removed in v0.3.0)
         click.secho("Creating requirements.txt...", fg='blue')
-        _create_requirements(project_dir, framework, include_tests)
+        _create_requirements(project_dir, framework, include_tests, db_type)
 
         # Create pyproject.toml (modern, uv-compatible)
         click.secho("Creating pyproject.toml...", fg='blue')
-        _create_pyproject(project_dir, name, framework, include_tests)
+        _create_pyproject(project_dir, name, framework, include_tests, db_type)
 
         click.secho("\n" + "="*50, fg='green', bold=True)
         click.secho("[OK] Project created successfully!", fg='green', bold=True)
         click.secho("="*50 + "\n", fg='green', bold=True)
+
+        # Show database-specific tips if database was configured
+        if db_type:
+            click.secho(f"  {click.style('[OK]', fg='green')} Database configuration created (app/database.py)")
+            click.secho(f"  {click.style('[OK]', fg='green')} Sample User model created (app/db_models/user.py)")
+            click.secho("")
+            click.secho(f"  {click.style('[TIP]', fg='cyan')} Next steps for database:")
+            click.secho(f"    {click.style('1.', fg='yellow')} Copy .env.example to .env and update DATABASE_URL")
+            click.secho(f"    {click.style('2.', fg='yellow')} Run: {click.style('reroute db init', fg='bright_white')}")
+            click.secho(f"    {click.style('3.', fg='yellow')} Run: {click.style(\"reroute db migrate -m 'initial'\", fg='bright_white')}")
+            click.secho(f"    {click.style('4.', fg='yellow')} Run: {click.style('reroute db upgrade', fg='bright_white')}")
+            click.secho("")
 
         # Show next steps
         click.secho("Next steps:", fg='yellow', bold=True)
@@ -288,26 +337,87 @@ def _generate_tests(project_dir: Path, framework: str):
         test_file.write_text(content)
 
 
-def _create_requirements(project_dir: Path, framework: str, include_tests: bool = False):
+def _create_requirements(project_dir: Path, framework: str, include_tests: bool = False, db_type: str = None):
     """Create requirements.txt using template."""
     template = jinja_env.get_template('project/requirements.txt.j2')
     content = template.render(
         framework=framework,
-        db_type=None,
+        db_type=db_type,
         include_tests=include_tests
     )
     requirements_file = project_dir / "requirements.txt"
     requirements_file.write_text(content)
 
 
-def _create_pyproject(project_dir: Path, project_name: str, framework: str, include_tests: bool = False):
+def _create_pyproject(project_dir: Path, project_name: str, framework: str, include_tests: bool = False, db_type: str = None):
     """Create pyproject.toml using template (modern Python standard, uv-compatible)."""
     template = jinja_env.get_template('project/pyproject.toml.j2')
     content = template.render(
         project_name=project_name,
         framework=framework,
-        db_type=None,
+        db_type=db_type,
         include_tests=include_tests
     )
     pyproject_file = project_dir / "pyproject.toml"
     pyproject_file.write_text(content)
+
+
+def _generate_env_file(project_dir: Path, name: str, db_type: str = None):
+    """Generate .env.example file."""
+    template = jinja_env.get_template('project/env.example.j2')
+
+    # Set default URL based on db_type (with obvious placeholders)
+    db_url = None
+    valid_db_types = {'postgresql', 'mysql', 'sqlite', 'mongodb'}
+    if db_type and db_type in valid_db_types:
+        default_urls = {
+            'postgresql': f'postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/{name}',
+            'mysql': f'mysql+pymysql://YOUR_USER:YOUR_PASSWORD@localhost:3306/{name}',
+            'sqlite': f'sqlite:///./{name}.db',
+            'mongodb': f'mongodb://localhost:27017/{name}'
+        }
+        db_url = default_urls.get(db_type, '')
+
+    content = template.render(
+        project_name=name,
+        db_type=db_type,
+        db_url=db_url
+    )
+    env_file = project_dir / ".env.example"
+    env_file.write_text(content)
+
+
+def _generate_database_files(project_dir: Path, name: str, db_type: str):
+    """Generate database configuration and sample model."""
+
+    # Validate db_type to prevent unexpected values
+    valid_db_types = {'postgresql', 'mysql', 'sqlite', 'mongodb'}
+    if db_type not in valid_db_types:
+        raise ValueError(f"Invalid db_type: {db_type}. Must be one of {valid_db_types}")
+
+    # Set default URL based on db_type (with obvious placeholders - NEVER use in production)
+    default_urls = {
+        'postgresql': f'postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/{name}',
+        'mysql': f'mysql+pymysql://YOUR_USER:YOUR_PASSWORD@localhost:3306/{name}',
+        'sqlite': f'sqlite:///./{name}.db',
+        'mongodb': f'mongodb://localhost:27017/{name}'
+    }
+
+    # Create app/database.py
+    db_template = jinja_env.get_template('database/database.py.j2')
+    db_content = db_template.render(
+        name=name,
+        db_type=db_type,
+        default_url=default_urls.get(db_type, '')
+    )
+    (project_dir / "app" / "database.py").write_text(db_content)
+
+    # Create app/db_models/ directory
+    db_models_dir = project_dir / "app" / "db_models"
+    db_models_dir.mkdir(exist_ok=True)
+    (db_models_dir / "__init__.py").write_text('"""Database models"""')
+
+    # Create sample User model
+    user_template = jinja_env.get_template('database/user_model.py.j2')
+    user_content = user_template.render(db_type=db_type)
+    (db_models_dir / "user.py").write_text(user_content)
