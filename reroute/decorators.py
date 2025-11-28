@@ -12,19 +12,25 @@ Provides useful decorators for route methods including:
 
 import time
 import functools
-from typing import Callable, Dict, Any, Optional, List
+from typing import Callable, Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from collections import defaultdict
 import threading
 
 
 # Rate Limiting Storage
-class RateLimitStorage:
-    """Thread-safe storage for rate limit tracking."""
+# Security: Maximum number of unique keys to prevent unbounded memory growth
+MAX_RATE_LIMIT_KEYS = 10000
 
-    def __init__(self):
+
+class RateLimitStorage:
+    """Thread-safe storage for rate limit tracking with size limits."""
+
+    def __init__(self, max_keys: int = MAX_RATE_LIMIT_KEYS):
         self._storage: Dict[str, List[float]] = defaultdict(list)
         self._lock = threading.Lock()
+        self._max_keys = max_keys
+        self._access_order: List[str] = []  # Track access order for LRU eviction
 
     def add_request(self, key: str, timestamp: float) -> None:
         """Add a request timestamp."""
@@ -41,7 +47,14 @@ class RateLimitStorage:
         with self._lock:
             self._storage[key] = [ts for ts in self._storage[key] if ts > cutoff]
 
-    def check_and_add(self, key: str, timestamp: float, cutoff: float, max_requests: int) -> tuple[bool, int]:
+    def _evict_lru_keys(self, count: int = 1) -> None:
+        """Evict least recently used keys (must be called with lock held)."""
+        for _ in range(min(count, len(self._access_order))):
+            if self._access_order:
+                old_key = self._access_order.pop(0)
+                self._storage.pop(old_key, None)
+
+    def check_and_add(self, key: str, timestamp: float, cutoff: float, max_requests: int) -> Tuple[bool, int]:
         """
         Atomically check rate limit and add request if allowed.
 
@@ -55,6 +68,16 @@ class RateLimitStorage:
             Tuple of (allowed: bool, retry_after: int)
         """
         with self._lock:
+            # Security: Enforce max keys limit to prevent memory exhaustion
+            if key not in self._storage and len(self._storage) >= self._max_keys:
+                # Evict oldest keys to make room
+                self._evict_lru_keys(max(1, len(self._storage) - self._max_keys + 1))
+
+            # Update access order for LRU tracking
+            if key in self._access_order:
+                self._access_order.remove(key)
+            self._access_order.append(key)
+
             # Cleanup old requests
             self._storage[key] = [ts for ts in self._storage[key] if ts > cutoff]
 
@@ -74,9 +97,38 @@ _rate_limit_storage = RateLimitStorage()
 _cache_storage: Dict[str, Dict[str, Any]] = {}
 _cache_lock = threading.Lock()
 
+# Security: Set maximum cache size to prevent unbounded memory growth
+MAX_CACHE_SIZE = 1000
+
+
+def _evict_oldest_cache_entries(target_size: int = MAX_CACHE_SIZE):
+    """
+    Evict oldest cache entries when cache size exceeds limit.
+    Uses LRU (Least Recently Used) eviction strategy.
+
+    Args:
+        target_size: Maximum number of cache entries to keep
+    """
+    if len(_cache_storage) <= target_size:
+        return
+
+    # Sort by creation time (oldest first)
+    sorted_entries = sorted(
+        _cache_storage.items(),
+        key=lambda x: x[1]["created_at"]
+    )
+
+    # Remove oldest entries to reach target size
+    entries_to_remove = len(_cache_storage) - target_size
+    for key, _ in sorted_entries[:entries_to_remove]:
+        del _cache_storage[key]
+
 
 def _cleanup_expired_caches():
     """Background thread to periodically clean up expired cache entries."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     while True:
         time.sleep(60)  # Check every minute
         try:
@@ -88,9 +140,13 @@ def _cleanup_expired_caches():
                 ]
                 for k in expired_keys:
                     del _cache_storage[k]
-        except Exception:
-            # Silently continue if cleanup fails
-            pass
+
+                # Security: Enforce maximum cache size
+                _evict_oldest_cache_entries(MAX_CACHE_SIZE)
+
+        except Exception as e:
+            # Log the error instead of silently swallowing it
+            logger.error(f"Cache cleanup failed: {e}", exc_info=True)
 
 
 # Start cache cleanup thread
@@ -157,6 +213,36 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None, per_ip: bool = F
             # Extract client IP if per_ip is enabled
             client_ip = None
             if per_ip and not key_func:
+                # Security: Helper to validate IP address format
+                def is_valid_ip(ip: str) -> bool:
+                    """Validate IP address format to prevent header injection."""
+                    import re
+                    # IPv4 pattern
+                    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+                    # IPv6 pattern (simplified)
+                    ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$'
+
+                    if re.match(ipv4_pattern, ip):
+                        # Validate each octet is 0-255
+                        octets = ip.split('.')
+                        return all(0 <= int(o) <= 255 for o in octets)
+                    elif re.match(ipv6_pattern, ip):
+                        return True
+                    return False
+
+                def sanitize_ip(raw_ip: str) -> str:
+                    """Sanitize and validate IP from header."""
+                    if not raw_ip:
+                        return None
+                    # Strip whitespace and take first IP if comma-separated
+                    ip = raw_ip.split(',')[0].strip()
+                    # Remove any potential injection characters
+                    ip = ip.split()[0] if ip else None  # Take first token only
+                    # Validate format
+                    if ip and is_valid_ip(ip):
+                        return ip
+                    return None
+
                 # Try Flask first (thread-local request)
                 try:
                     from flask import request as flask_request
@@ -164,9 +250,9 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None, per_ip: bool = F
                         # Get IP from X-Forwarded-For if behind proxy, else remote_addr
                         x_forwarded_for = flask_request.headers.get('X-Forwarded-For')
                         if x_forwarded_for:
-                            # X-Forwarded-For can contain multiple IPs, first one is the client
-                            client_ip = x_forwarded_for.split(',')[0].strip()
-                        else:
+                            # Security: Validate and sanitize the forwarded IP
+                            client_ip = sanitize_ip(x_forwarded_for)
+                        if not client_ip:
                             client_ip = flask_request.remote_addr
                 except (ImportError, RuntimeError):
                     # Flask not available or no request context
@@ -183,7 +269,8 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None, per_ip: bool = F
                         elif hasattr(request, 'headers'):
                             x_forwarded_for = request.headers.get('X-Forwarded-For')
                             if x_forwarded_for:
-                                client_ip = x_forwarded_for.split(',')[0].strip()
+                                # Security: Validate and sanitize the forwarded IP
+                                client_ip = sanitize_ip(x_forwarded_for)
 
             # Generate rate limit key
             if key_func:
@@ -202,6 +289,18 @@ def rate_limit(limit: str, key_func: Optional[Callable] = None, per_ip: bool = F
             )
 
             if not allowed:
+                # Security logging: Log rate limit exceeded event
+                try:
+                    from reroute.logging import security_logger
+                    security_logger.log_rate_limit(
+                        endpoint=func.__name__,
+                        ip_address=client_ip,
+                        limit=limit,
+                        key=key
+                    )
+                except ImportError:
+                    pass  # Security logging not available
+
                 # Rate limit exceeded
                 return {
                     "error": "Rate limit exceeded",
@@ -262,15 +361,27 @@ def cache(duration: int = 60, key_func: Optional[Callable] = None):
                         # Cache expired
                         del _cache_storage[cache_key]
 
-            # Cache miss - execute function
+            # Cache miss - execute function (outside lock to avoid blocking)
             result = func(*args, **kwargs)
 
-            # Store in cache
+            # Store in cache with double-checked locking
             with _cache_lock:
+                # Double-check: Another thread may have populated cache while we executed
+                if cache_key in _cache_storage:
+                    existing = _cache_storage[cache_key]
+                    if time.time() < existing["expires_at"]:
+                        # Another thread already cached a valid result, use it
+                        # (our result is discarded but this prevents redundant work next time)
+                        return existing["data"]
+
+                # Security: Enforce cache size limit before adding new entry
+                if len(_cache_storage) >= MAX_CACHE_SIZE:
+                    _evict_oldest_cache_entries(MAX_CACHE_SIZE - 1)
+
                 _cache_storage[cache_key] = {
                     "data": result,
-                    "expires_at": current_time + duration,
-                    "created_at": current_time
+                    "expires_at": time.time() + duration,  # Use fresh timestamp
+                    "created_at": time.time()
                 }
 
             return result
@@ -284,41 +395,115 @@ def cache(duration: int = 60, key_func: Optional[Callable] = None):
 
 def requires(*roles: str, check_func: Optional[Callable] = None):
     """
-    Authentication/authorization decorator.
+    Authentication/authorization decorator with role-based access control.
+
+    IMPORTANT: This decorator requires you to provide a check_func that validates
+    user authentication and roles. Without it, the decorator will deny all access
+    (fail-safe/fail-closed security pattern).
 
     Args:
         *roles: Required roles (e.g., "admin", "user", "moderator")
-        check_func: Custom authentication check function
+        check_func: Custom authentication check function that should:
+                   - Accept (*args, **kwargs) from the route handler
+                   - Return True if user is authenticated and has required role(s)
+                   - Return False if authentication/authorization fails
+                   - If roles are specified, check if user has at least one of them
 
     Usage:
-        @requires("admin")
+        # With role checking
+        @requires("admin", check_func=lambda self: user_has_role(self.request, "admin"))
         def delete(self):
             return {"deleted": True}
 
-        @requires("admin", "moderator")
+        # Multiple roles (user needs at least one)
+        @requires("admin", "moderator", check_func=lambda self: user_has_any_role(self.request, ["admin", "moderator"]))
         def put(self):
             return {"updated": True}
 
-        @requires(check_func=lambda self: self.is_authenticated())
+        # Authentication only (no role check)
+        @requires(check_func=lambda self: is_authenticated(self.request))
         def get(self):
             return {"data": "..."}
 
     Returns:
         401 Unauthorized if authentication fails
-        403 Forbidden if authorization fails
+        403 Forbidden if authorization/role check fails
+        500 Internal Server Error if check_func is not provided (fail-safe)
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # If custom check function provided
+            # Security: Fail-safe pattern - if roles are specified but no check_func,
+            # deny access by default instead of allowing it
+            if roles and not check_func:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(
+                    f"@requires decorator on {func.__name__} specifies roles {roles} "
+                    f"but no check_func is provided. Access denied by default. "
+                    f"Please implement check_func to enable authorization."
+                )
+                return {
+                    "error": "Internal Server Error",
+                    "message": "Authorization not properly configured"
+                }, 500
+
+            # If custom check function provided, use it
             if check_func:
-                if not check_func(*args):
-                    return {"error": "Unauthorized", "message": "Authentication required"}, 401
+                try:
+                    # Call check function with route handler arguments
+                    is_authorized = check_func(*args, **kwargs)
 
-            # Role-based check would be implemented here
-            # This requires integration with the auth system
-            # For now, this serves as a placeholder for the pattern
+                    if not is_authorized:
+                        # Security logging: Log auth/authz failure
+                        try:
+                            from reroute.logging import security_logger
+                            if roles:
+                                security_logger.log_authz_failure(
+                                    resource=func.__name__,
+                                    required_roles=list(roles)
+                                )
+                            else:
+                                security_logger.log_auth_failure(
+                                    reason="Authentication check returned False",
+                                    resource=func.__name__
+                                )
+                        except ImportError:
+                            pass
 
+                        # If roles were specified, this is an authorization failure (403)
+                        # If no roles, this is an authentication failure (401)
+                        if roles:
+                            return {
+                                "error": "Forbidden",
+                                "message": f"Requires one of the following roles: {', '.join(roles)}"
+                            }, 403
+                        else:
+                            return {
+                                "error": "Unauthorized",
+                                "message": "Authentication required"
+                            }, 401
+
+                except Exception as e:
+                    # Security logging: Log security error
+                    try:
+                        from reroute.logging import security_logger
+                        security_logger.log_security_error(
+                            error=str(e),
+                            context=f"Authorization check for {func.__name__}"
+                        )
+                    except ImportError:
+                        pass
+
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Authorization check failed with exception: {e}", exc_info=True)
+                    return {
+                        "error": "Internal Server Error",
+                        "message": "Authorization check failed"
+                    }, 500
+
+            # Authorization successful, execute the function
             return func(*args, **kwargs)
 
         # Store metadata for documentation
@@ -731,3 +916,79 @@ def get_cache_stats() -> Dict[str, Any]:
             "active_caches": active_caches,
             "expired_caches": len(_cache_storage) - active_caches
         }
+
+
+# =============================================================================
+# Standardized Error Response Helper
+# =============================================================================
+
+def error_response(
+    message: str,
+    status_code: int = 400,
+    error_type: str = "Error",
+    details: Optional[Dict[str, Any]] = None
+) -> tuple:
+    """
+    Create a standardized error response.
+
+    Provides consistent error format across all REROUTE endpoints.
+
+    Args:
+        message: Human-readable error message
+        status_code: HTTP status code (default: 400)
+        error_type: Error category (default: "Error")
+        details: Optional additional error details
+
+    Returns:
+        Tuple of (error_dict, status_code)
+
+    Usage:
+        from reroute.decorators import error_response
+
+        @rate_limit("5/min")
+        def post(self, data):
+            if not data.get("email"):
+                return error_response("Email is required", 400, "ValidationError")
+
+            if not is_valid_email(data["email"]):
+                return error_response(
+                    "Invalid email format",
+                    400,
+                    "ValidationError",
+                    details={"field": "email", "value": data["email"]}
+                )
+
+            return {"success": True}
+    """
+    response = {
+        "error": error_type,
+        "message": message
+    }
+
+    if details:
+        response["details"] = details
+
+    return response, status_code
+
+
+# =============================================================================
+# Module Exports
+# =============================================================================
+
+__all__ = [
+    # Decorators
+    "rate_limit",
+    "cache",
+    "requires",
+    "validate",
+    "timeout",
+    "log_requests",
+    # Utilities
+    "clear_cache",
+    "clear_rate_limits",
+    "get_cache_stats",
+    "error_response",
+    # Constants
+    "MAX_CACHE_SIZE",
+    "MAX_RATE_LIMIT_KEYS",
+]

@@ -80,7 +80,7 @@ class RouteLoader:
     def _is_safe_path(self, path: Path) -> bool:
         """
         Validate that a path is within the routes directory.
-        Prevents directory traversal attacks.
+        Prevents directory traversal attacks including symlink attacks.
 
         Args:
             path: Path to validate
@@ -89,22 +89,44 @@ class RouteLoader:
             True if path is safe, False otherwise
         """
         try:
+            # Security: Check for symlinks BEFORE resolving (resolve() follows symlinks)
+            # This prevents attackers from creating symlinks to escape the routes directory
+            if path.is_symlink():
+                logger.warning(f"Symlink detected in route path: {path}")
+                # Security logging
+                try:
+                    from reroute.logging import security_logger
+                    security_logger.log_path_traversal(path=str(path))
+                except ImportError:
+                    pass
+                return False
+
+            # Check all parent components for symlinks (before resolving)
+            for parent in path.parents:
+                if parent.is_symlink():
+                    logger.warning(f"Symlink detected in parent path: {parent}")
+                    # Security logging
+                    try:
+                        from reroute.logging import security_logger
+                        security_logger.log_path_traversal(path=str(parent))
+                    except ImportError:
+                        pass
+                    return False
+
             # Resolve both paths to absolute (strict=True raises if path doesn't exist)
             resolved_path = path.resolve(strict=True)
             resolved_routes_dir = self.routes_dir.resolve(strict=True)
 
-            # Check for symlinks in the path
-            if resolved_path.is_symlink() or any(p.is_symlink() for p in resolved_path.parents):
-                return False
-
-            # Ensure path is within routes_dir using relative_to
-            # This will raise ValueError if path is not within routes_dir
+            # Double-check: ensure resolved path is still within routes directory
+            # This catches cases where symlinks in parent directories might escape
             try:
                 resolved_path.relative_to(resolved_routes_dir)
                 return True
             except ValueError:
+                logger.warning(f"Path escapes routes directory: {path} -> {resolved_path}")
                 return False
 
-        except (OSError, ValueError, RuntimeError):
+        except (OSError, ValueError, RuntimeError) as e:
             # Catch specific exceptions: file not found, permission denied, etc.
+            logger.warning(f"Path validation failed for {path}: {e}")
             return False

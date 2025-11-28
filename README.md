@@ -46,10 +46,10 @@ Visit `http://localhost:7376/docs` for interactive API documentation.
 📚 **[Complete Documentation](https://cbsajan.github.io/reroute-docs)** - Full guides, API reference, and examples
 
 Quick links:
-- [Getting Started](https://cbsajan.github.io/reroute-docs/getting-started/) - Installation and first route
-- [CLI Commands](https://cbsajan.github.io/reroute-docs/cli/commands/) - Complete CLI reference
-- [API Reference](https://cbsajan.github.io/reroute-docs/api/) - RouteBase, parameters, decorators, config
-- [Examples](https://cbsajan.github.io/reroute-docs/examples/) - CRUD, authentication, rate limiting, caching
+- [Getting Started](https://cbsajan.github.io/reroute-docs/latest/getting-started/) - Installation and first route
+- [CLI Commands](https://cbsajan.github.io/reroute-docs/latest/cli/commands/) - Complete CLI reference
+- [API Reference](https://cbsajan.github.io/reroute-docs/latest/api/) - RouteBase, parameters, decorators, config
+- [Examples](https://cbsajan.github.io/reroute-docs/latest/examples/) - CRUD, authentication, rate limiting, caching
 - [Contributing](CONTRIBUTING.md) - How to contribute to REROUTE
 
 ## How It Works

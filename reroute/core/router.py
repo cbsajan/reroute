@@ -74,7 +74,18 @@ class Router:
                 # Root level route
                 route_path = "/"
             else:
-                route_path = "/" + str(relative_path).replace("\\", "/")
+                # Security: Normalize and sanitize the path
+                # - Replace backslashes with forward slashes
+                # - Remove any ".." or "." components
+                # - Collapse multiple slashes
+                import posixpath
+                raw_path = str(relative_path).replace("\\", "/")
+                normalized = posixpath.normpath(raw_path)
+                # Ensure no path traversal attempts remain
+                if ".." in normalized or normalized.startswith("/"):
+                    logger.warning(f"Suspicious route path detected: {relative_path}")
+                    continue
+                route_path = "/" + normalized
 
             discovered_routes.append(route_path)
 

@@ -58,6 +58,33 @@ class FastAPIAdapter:
         # Setup CORS
         self._setup_cors()
 
+        # Setup health check endpoint
+        self._setup_health_check()
+
+    def _setup_health_check(self) -> None:
+        """Setup health check endpoint for load balancers."""
+        if not self.config.HEALTH_CHECK_ENABLED:
+            return
+
+        health_path = self.config.HEALTH_CHECK_PATH
+
+        @self.app.get(health_path, tags=["Health"], include_in_schema=True)
+        async def health_check():
+            """
+            Health check endpoint for load balancers and monitoring.
+
+            Returns:
+                200 OK with status information
+            """
+            return {
+                "status": "healthy",
+                "service": self.app.title or "REROUTE API",
+                "version": self.app.version or "1.0.0"
+            }
+
+        if self.config.VERBOSE_LOGGING:
+            print(f"[OK] Health check endpoint: {health_path}")
+
     def register_routes(self) -> None:
         """
         Discover and register all REROUTE routes with FastAPI.
