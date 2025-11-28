@@ -12,7 +12,7 @@ Provides useful decorators for route methods including:
 
 import time
 import functools
-from typing import Callable, Dict, Any, Optional, List
+from typing import Callable, Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from collections import defaultdict
 import threading
@@ -54,7 +54,7 @@ class RateLimitStorage:
                 old_key = self._access_order.pop(0)
                 self._storage.pop(old_key, None)
 
-    def check_and_add(self, key: str, timestamp: float, cutoff: float, max_requests: int) -> tuple[bool, int]:
+    def check_and_add(self, key: str, timestamp: float, cutoff: float, max_requests: int) -> Tuple[bool, int]:
         """
         Atomically check rate limit and add request if allowed.
 
