@@ -30,7 +30,7 @@ class TestSQLInjectionPrevention:
     @pytest.fixture
     def setup_db(self):
         """Create in-memory SQLite database for testing"""
-        from sqlalchemy.ext.declarative import declarative_base
+        from sqlalchemy.orm import declarative_base
         import uuid
 
         # Create a fresh base for this test to avoid conflicts

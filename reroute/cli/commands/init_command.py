@@ -203,7 +203,8 @@ def init(name, framework, config, host, port, description):
             click.secho(f"  {click.style('[TIP]', fg='cyan')} Next steps for database:")
             click.secho(f"    {click.style('1.', fg='yellow')} Copy .env.example to .env and update DATABASE_URL")
             click.secho(f"    {click.style('2.', fg='yellow')} Run: {click.style('reroute db init', fg='bright_white')}")
-            click.secho(f"    {click.style('3.', fg='yellow')} Run: {click.style(\"reroute db migrate -m 'initial'\", fg='bright_white')}")
+            migrate_cmd = "reroute db migrate -m 'initial'"
+            click.secho(f"    {click.style('3.', fg='yellow')} Run: {click.style(migrate_cmd, fg='bright_white')}")
             click.secho(f"    {click.style('4.', fg='yellow')} Run: {click.style('reroute db upgrade', fg='bright_white')}")
             click.secho("")
 

@@ -45,6 +45,7 @@ setup(
             "pytest-asyncio>=0.21.0",
             "black>=23.0.0",
             "ruff>=0.1.0",
+            "sqlalchemy>=2.0.0",
         ],
     },
     entry_points={
