@@ -1,0 +1,97 @@
+"""
+Me Route - GET /auth/me
+
+Returns current authenticated user info.
+"""
+
+from reroute import RouteBase
+from reroute.decorators import requires, cache
+from reroute.params import Header
+from logger import get_logger
+
+from app.auth import verify_token
+from app.models.auth import UserResponse
+
+logger = get_logger(__name__)
+
+
+def check_auth(self):
+    """Check if request has valid authorization token."""
+    auth_header = self.get_header("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return False
+
+    token = auth_header.split(" ")[1]
+    payload = verify_token(token, token_type="access")
+    if payload:
+        # Store user info for later use
+        self.current_user = payload
+        return True
+    return False
+
+
+class MeRoutes(RouteBase):
+    """
+    Handles current user info retrieval.
+
+    GET /auth/me - Get authenticated user profile (requires token)
+    """
+
+    tag = "Auth"
+
+    def __init__(self):
+        super().__init__()
+        self.current_user = None
+        # TODO(human): Initialize your user storage/database connection
+        # Example: self.db = get_database()
+        self.users = {}  # Replace with actual database
+
+    def get_header(self, name: str):
+        """Get request header value."""
+        # This will be populated by the framework
+        return getattr(self, '_headers', {}).get(name)
+
+    def before_request(self):
+        """Extract and store headers from request."""
+        # Try to get headers from Flask
+        try:
+            from flask import request
+            self._headers = dict(request.headers)
+        except (ImportError, RuntimeError):
+            pass
+
+        # Try to get headers from FastAPI (passed via kwargs)
+        # Headers are typically injected by the framework
+
+    @requires(check_func=check_auth)
+    @cache(duration=60)
+    def get(self):
+        """
+        Get current authenticated user profile.
+
+        Requires valid Bearer token in Authorization header.
+        """
+        if not self.current_user:
+            return {"error": "Not authenticated"}, 401
+
+        user_id = self.current_user.get("sub")
+        email = self.current_user.get("email")
+
+        logger.info(f"Profile accessed by: {email}")
+
+        # TODO(human): Fetch full user data from database
+        # Example:
+        # user = self.db.query(User).filter(User.id == user_id).first()
+        # return {
+        #     "id": user.id,
+        #     "email": user.email,
+        #     "name": user.name,
+        #     "created_at": user.created_at.isoformat()
+        # }
+
+        # Placeholder - Return token claims
+        return {
+            "id": user_id,
+            "email": email,
+            "message": "Implement database lookup for full user profile"
+        }

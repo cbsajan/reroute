@@ -44,6 +44,14 @@ Full Import Guide:
 
 __version__ = "0.1.8"
 
+# Feature flags for unreleased features (will be enabled in future versions)
+# These features are hidden and disabled until their target release
+FEATURE_FLAGS = {
+    "dbmodel_command": False,   # Target: v0.2.0 - Database model generation
+    "database_init": False,     # Target: v0.2.0 - Database setup in init command
+    "auth_scaffolding": False,  # Target: v0.2.0 - JWT auth scaffolding
+}
+
 
 # Core essentials for minimal usage
 from reroute.core.base import RouteBase

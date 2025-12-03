@@ -173,7 +173,7 @@ class FlaskAdapter:
             return self.jsonify({
                 "status": "healthy",
                 "service": self.app.name or "REROUTE API",
-                "version": "1.0.0"
+                "version": getattr(self.config.OpenAPI, 'VERSION', '1.0.0') if hasattr(self.config, 'OpenAPI') else '1.0.0'
             })
 
         if self.config.VERBOSE_LOGGING:

@@ -11,6 +11,7 @@ Commands for database management:
 import click
 import sys
 from pathlib import Path
+from ..utils import progress_step, success_message, next_steps, handle_error, CLIError
 
 
 @click.group()
@@ -26,17 +27,23 @@ def init():
 
     Creates migrations directory and configuration files.
     """
-    click.echo("\n[DB] Initializing database migrations...")
+    click.secho("\n" + "=" * 50, fg='cyan', bold=True)
+    click.secho("Initializing Database Migrations", fg='cyan', bold=True)
+    click.secho("=" * 50 + "\n", fg='cyan', bold=True)
 
     migrations_dir = Path("migrations")
     if migrations_dir.exists():
-        click.secho("\n[WARNING] Migrations directory already exists!", fg='yellow')
-        return
+        raise CLIError(
+            "Migrations directory already exists",
+            suggestion="If you want to reinitialize, delete the 'migrations' directory first:\n"
+                      "  rm -rf migrations alembic.ini",
+            error_code="DB001"
+        )
 
     try:
-        # Create migrations directory structure
-        migrations_dir.mkdir(exist_ok=True)
-        (migrations_dir / "versions").mkdir(exist_ok=True)
+        with progress_step("Creating migrations directory"):
+            migrations_dir.mkdir(exist_ok=True)
+            (migrations_dir / "versions").mkdir(exist_ok=True)
 
         # Create alembic.ini
         alembic_ini_content = """# Alembic Migration Configuration
@@ -80,7 +87,8 @@ formatter = generic
 format = %(levelname)-5.5s [%(name)s] %(message)s
 datefmt = %H:%M:%S
 """
-        Path("alembic.ini").write_text(alembic_ini_content)
+        with progress_step("Creating alembic.ini"):
+            Path("alembic.ini").write_text(alembic_ini_content)
 
         # Create env.py
         env_py_content = """from logging.config import fileConfig
@@ -130,22 +138,24 @@ if context.is_offline_mode():
 else:
     run_migrations_online()
 """
-        (migrations_dir / "env.py").write_text(env_py_content)
+        with progress_step("Creating migrations/env.py"):
+            (migrations_dir / "env.py").write_text(env_py_content)
 
-        click.secho("\n[SUCCESS] Migrations initialized successfully!", fg='green')
-        click.echo("\n[CREATED]")
-        click.echo("  - migrations/")
-        click.echo("  - migrations/versions/")
-        click.echo("  - migrations/env.py")
-        click.echo("  - alembic.ini")
+        # Success message with details
+        success_message("Migrations initialized successfully!", {
+            "Migrations Dir": "migrations/",
+            "Config File": "alembic.ini"
+        })
 
-        click.echo("\n[NEXT STEPS]")
-        click.secho("  reroute db migrate -m 'Initial migration'", fg='cyan')
-        click.secho("  reroute db upgrade", fg='cyan')
-        click.echo()
+        next_steps([
+            "reroute db migrate -m 'Initial migration'",
+            "reroute db upgrade"
+        ])
 
+    except CLIError:
+        raise  # Re-raise CLI errors to be handled by caller
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Database initialization")
         sys.exit(1)
 
 
@@ -158,36 +168,59 @@ def migrate(message):
     Example:
         reroute db migrate -m "Add users table"
     """
-    click.echo(f"\n[MIGRATE] Creating migration: {message}")
+    click.secho("\n" + "=" * 50, fg='cyan', bold=True)
+    click.secho("Creating Database Migration", fg='cyan', bold=True)
+    click.secho("=" * 50 + "\n", fg='cyan', bold=True)
+
+    # Check if alembic is installed
+    try:
+        import alembic  # noqa: F401
+    except ImportError:
+        raise CLIError(
+            "Alembic is not installed",
+            suggestion="Install with: pip install alembic",
+            error_code="DB010"
+        )
+
+    # Check if migrations are initialized
+    if not Path("migrations").exists():
+        raise CLIError(
+            "Migrations not initialized",
+            suggestion="Run 'reroute db init' first to initialize migrations.",
+            error_code="DB011"
+        )
 
     try:
         import subprocess
 
-        # Check if alembic is installed
-        try:
-            import alembic
-        except ImportError:
-            click.secho("\n[ERROR] Alembic not installed!", fg='red')
-            click.echo("Install with: pip install alembic")
-            sys.exit(1)
+        click.secho(f"  Migration: ", fg='blue', nl=False)
+        click.secho(message, fg='cyan', bold=True)
+        click.echo()
 
-        # Run alembic revision
-        result = subprocess.run(
-            ['alembic', 'revision', '--autogenerate', '-m', message],
-            capture_output=True,
-            text=True
-        )
+        with progress_step("Generating migration"):
+            result = subprocess.run(
+                ['alembic', 'revision', '--autogenerate', '-m', message],
+                capture_output=True,
+                text=True
+            )
 
         if result.returncode == 0:
-            click.secho("\n[SUCCESS] Migration created successfully!", fg='green')
-            click.echo(result.stdout)
-        else:
-            click.secho(f"\n[ERROR] Error creating migration:", fg='red')
-            click.echo(result.stderr)
-            sys.exit(1)
+            success_message("Migration created successfully!")
+            if result.stdout:
+                click.echo(result.stdout)
 
+            next_steps(["reroute db upgrade"])
+        else:
+            raise CLIError(
+                "Error creating migration",
+                suggestion=result.stderr.strip() if result.stderr else "Check your database configuration and models.",
+                error_code="DB012"
+            )
+
+    except CLIError:
+        raise
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Migration creation")
         sys.exit(1)
 
 
@@ -198,27 +231,43 @@ def upgrade():
 
     Applies migrations to the database.
     """
-    click.echo("\n[UPGRADE] Applying migrations...")
+    click.secho("\n" + "=" * 50, fg='cyan', bold=True)
+    click.secho("Applying Database Migrations", fg='cyan', bold=True)
+    click.secho("=" * 50 + "\n", fg='cyan', bold=True)
+
+    # Check if migrations are initialized
+    if not Path("migrations").exists():
+        raise CLIError(
+            "Migrations not initialized",
+            suggestion="Run 'reroute db init' first to initialize migrations.",
+            error_code="DB011"
+        )
 
     try:
         import subprocess
 
-        result = subprocess.run(
-            ['alembic', 'upgrade', 'head'],
-            capture_output=True,
-            text=True
-        )
+        with progress_step("Applying migrations to database"):
+            result = subprocess.run(
+                ['alembic', 'upgrade', 'head'],
+                capture_output=True,
+                text=True
+            )
 
         if result.returncode == 0:
-            click.secho("\n[SUCCESS] Migrations applied successfully!", fg='green')
-            click.echo(result.stdout)
+            success_message("Migrations applied successfully!")
+            if result.stdout:
+                click.echo(result.stdout)
         else:
-            click.secho(f"\n[ERROR] Error applying migrations:", fg='red')
-            click.echo(result.stderr)
-            sys.exit(1)
+            raise CLIError(
+                "Error applying migrations",
+                suggestion=result.stderr.strip() if result.stderr else "Check your database connection and migration files.",
+                error_code="DB020"
+            )
 
+    except CLIError:
+        raise
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Migration upgrade")
         sys.exit(1)
 
 
@@ -231,46 +280,80 @@ def downgrade(steps):
     Example:
         reroute db downgrade --steps 1
     """
+    click.secho("\n" + "=" * 50, fg='yellow', bold=True)
+    click.secho("Rolling Back Database Migrations", fg='yellow', bold=True)
+    click.secho("=" * 50 + "\n", fg='yellow', bold=True)
+
     # Security: Validate steps parameter to prevent command injection
     try:
         steps_int = int(steps)
         if steps_int < 1:
-            click.secho("\n[ERROR] Steps must be a positive integer (>= 1)", fg='red')
+            click.secho("\n[ERROR] Steps must be a positive integer (>= 1)", fg='red', bold=True)
+            click.secho("\n[TIP] Example: reroute db downgrade --steps 1", fg='yellow')
             sys.exit(1)
         if steps_int > 100:
-            click.secho("\n[ERROR] Steps cannot exceed 100 for safety", fg='red')
+            click.secho("\n[ERROR] Steps cannot exceed 100 for safety", fg='red', bold=True)
+            click.secho("\n[TIP] If you need to rollback more, do it in batches.", fg='yellow')
             sys.exit(1)
-    except (ValueError, TypeError):
-        click.secho(f"\n[ERROR] Invalid steps value: '{steps}'. Must be a positive integer.", fg='red')
+    except ValueError:
+        click.secho(f"\n[ERROR] Invalid steps value: '{steps}'", fg='red', bold=True)
+        click.secho("\n[TIP] Steps must be a positive integer. Example: --steps 1", fg='yellow')
         sys.exit(1)
 
-    click.echo(f"\n[DOWNGRADE] Rolling back {steps_int} migration(s)...")
+    # Check if migrations are initialized
+    if not Path("migrations").exists():
+        raise CLIError(
+            "Migrations not initialized",
+            suggestion="Run 'reroute db init' first to initialize migrations.",
+            error_code="DB011"
+        )
+
+    # Warn about destructive action
+    click.secho(f"[WARNING] This will rollback {steps_int} migration(s).", fg='yellow')
+    click.secho("          This action may result in data loss!", fg='yellow')
+    if not click.confirm("\nAre you sure you want to proceed?", default=False):
+        click.secho("\n[CANCELLED] Rollback cancelled by user.\n", fg='yellow')
+        return
 
     try:
         import subprocess
 
-        result = subprocess.run(
-            ['alembic', 'downgrade', f'-{steps_int}'],
-            capture_output=True,
-            text=True
-        )
+        with progress_step(f"Rolling back {steps_int} migration(s)"):
+            result = subprocess.run(
+                ['alembic', 'downgrade', f'-{steps_int}'],
+                capture_output=True,
+                text=True
+            )
 
         if result.returncode == 0:
-            click.secho("\n[SUCCESS] Rollback completed!", fg='green')
-            click.echo(result.stdout)
+            success_message("Rollback completed!")
+            if result.stdout:
+                click.echo(result.stdout)
         else:
-            click.secho(f"\n[ERROR] Error during rollback:", fg='red')
-            click.echo(result.stderr)
-            sys.exit(1)
+            raise CLIError(
+                "Error during rollback",
+                suggestion=result.stderr.strip() if result.stderr else "Check migration history with 'reroute db history'.",
+                error_code="DB033"
+            )
 
+    except CLIError:
+        raise
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Migration rollback")
         sys.exit(1)
 
 
 @db.command()
 def current():
     """Show current migration version"""
+    # Check if migrations are initialized
+    if not Path("migrations").exists():
+        raise CLIError(
+            "Migrations not initialized",
+            suggestion="Run 'reroute db init' first to initialize migrations.",
+            error_code="DB011"
+        )
+
     try:
         import subprocess
 
@@ -281,19 +364,35 @@ def current():
         )
 
         if result.returncode == 0:
-            click.echo("\n[CURRENT] Current migration:")
-            click.echo(result.stdout)
+            click.secho("\n[CURRENT] Current migration version:", fg='cyan', bold=True)
+            if result.stdout.strip():
+                click.echo(result.stdout)
+            else:
+                click.secho("  No migrations applied yet.", fg='yellow')
         else:
-            click.secho(f"\n[ERROR]", fg='red')
-            click.echo(result.stderr)
+            raise CLIError(
+                "Error getting current migration",
+                suggestion=result.stderr.strip() if result.stderr else "Check your alembic configuration.",
+                error_code="DB040"
+            )
 
+    except CLIError:
+        raise
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Getting current migration")
 
 
 @db.command()
 def history():
     """Show migration history"""
+    # Check if migrations are initialized
+    if not Path("migrations").exists():
+        raise CLIError(
+            "Migrations not initialized",
+            suggestion="Run 'reroute db init' first to initialize migrations.",
+            error_code="DB011"
+        )
+
     try:
         import subprocess
 
@@ -304,11 +403,20 @@ def history():
         )
 
         if result.returncode == 0:
-            click.echo("\n[HISTORY] Migration history:")
-            click.echo(result.stdout)
+            click.secho("\n[HISTORY] Migration history:", fg='cyan', bold=True)
+            if result.stdout.strip():
+                click.echo(result.stdout)
+            else:
+                click.secho("  No migrations found.", fg='yellow')
+                click.secho("\n[TIP] Create a migration with: reroute db migrate -m 'Initial'", fg='blue')
         else:
-            click.secho(f"\n[ERROR]", fg='red')
-            click.echo(result.stderr)
+            raise CLIError(
+                "Error getting migration history",
+                suggestion=result.stderr.strip() if result.stderr else "Check your alembic configuration.",
+                error_code="DB041"
+            )
 
+    except CLIError:
+        raise
     except Exception as e:
-        click.secho(f"\n[ERROR] {e}", fg='red')
+        handle_error(e, context="Getting migration history")

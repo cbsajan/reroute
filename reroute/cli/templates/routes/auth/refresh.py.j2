@@ -1,0 +1,54 @@
+"""
+Refresh Route - POST /auth/refresh
+
+Refreshes access token using refresh token.
+"""
+
+from reroute import RouteBase
+from reroute.decorators import rate_limit
+from reroute.params import Body
+from logger import get_logger
+
+from app.auth import create_access_token, verify_token
+from app.models.auth import RefreshTokenRequest, TokenResponse
+
+logger = get_logger(__name__)
+
+
+class RefreshRoutes(RouteBase):
+    """
+    Handles token refresh.
+
+    POST /auth/refresh - Get new access token using refresh token
+    """
+
+    tag = "Auth"
+
+    @rate_limit("10/min")
+    def post(self, token_data: RefreshTokenRequest = Body(...)):
+        """
+        Refresh access token.
+
+        Validates refresh token and returns new access token.
+        """
+        # Verify refresh token
+        payload = verify_token(token_data.refresh_token, token_type="refresh")
+
+        if not payload:
+            logger.warning("Invalid or expired refresh token")
+            return {"error": "Invalid or expired refresh token"}, 401
+
+        # Create new access token with same claims
+        new_token_data = {
+            "sub": payload.get("sub"),
+            "email": payload.get("email")
+        }
+        access_token = create_access_token(new_token_data)
+
+        logger.info(f"Token refreshed for user: {payload.get('email')}")
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": 1800
+        }

@@ -18,10 +18,10 @@ class {{ class_name }}(RouteBase):
     {{ class_name }} handles {{ route_path }} endpoints.
 
     Available methods:
-{%- for method in methods %}
+    {% for method in methods -%}
     - {{ method }}: {% if method == 'GET' %}Retrieve {{ resource_name }}{% elif method == 'POST' %}Create new {{ resource_name }}{% elif method == 'PUT' %}Update {{ resource_name }}{% elif method == 'PATCH' %}Partially update {{ resource_name }}{% elif method == 'DELETE' %}Delete {{ resource_name }}{% endif %}
-{%- endfor %}
-    """
+    {% endfor -%}
+"""
 
     # Swagger category/tag (optional - defaults to folder name)
     tag = "{{ route_name }}"
@@ -29,7 +29,7 @@ class {{ class_name }}(RouteBase):
     def __init__(self):
         super().__init__()
         # Initialize your data, database connections, etc.
-        self.data = []
+        self.data = {}
 
     def before_request(self):
         """
@@ -54,7 +54,7 @@ class {{ class_name }}(RouteBase):
             "message": "GET {{ route_path }}",
             "data": self.data
         }
-{%- endif %}
+{% endif -%}
 {% if 'POST' in methods %}
 
     @rate_limit("10/min")  # Max 10 requests per minute
@@ -65,7 +65,7 @@ class {{ class_name }}(RouteBase):
             "message": "POST {{ route_path }}",
             "status": "created"
         }
-{%- endif %}
+{% endif -%}
 {% if 'PUT' in methods %}
 
     def put(self):
@@ -75,7 +75,7 @@ class {{ class_name }}(RouteBase):
             "message": "PUT {{ route_path }}",
             "status": "updated"
         }
-{%- endif %}
+{% endif -%}
 {% if 'PATCH' in methods %}
 
     def patch(self):
@@ -85,7 +85,7 @@ class {{ class_name }}(RouteBase):
             "message": "PATCH {{ route_path }}",
             "status": "patched"
         }
-{%- endif %}
+{% endif -%}
 {% if 'DELETE' in methods %}
 
     def delete(self):
@@ -95,7 +95,7 @@ class {{ class_name }}(RouteBase):
             "message": "DELETE {{ route_path }}",
             "status": "deleted"
         }
-{%- endif %}
+{% endif %}
 
     def after_request(self, response):
         """

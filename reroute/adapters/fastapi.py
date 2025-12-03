@@ -344,16 +344,26 @@ class FastAPIAdapter:
 
     def _setup_openapi_paths(self) -> None:
         """
-        Apply custom OpenAPI documentation paths from configuration.
+        Apply custom OpenAPI documentation paths and metadata from configuration.
 
         Respects None values for individual endpoints:
         - DOCS_PATH = None -> disables Swagger UI
         - REDOC_PATH = None -> disables ReDoc UI
         - JSON_PATH = None -> disables OpenAPI JSON endpoint
+
+        Also sets API metadata (title, version, description) from config.
         """
         if hasattr(self.config, 'OpenAPI'):
             # Set docs URLs based on config
             if self.config.OpenAPI.ENABLE:
+                # Apply API metadata from config
+                if hasattr(self.config.OpenAPI, 'TITLE') and self.config.OpenAPI.TITLE:
+                    self.app.title = self.config.OpenAPI.TITLE
+                if hasattr(self.config.OpenAPI, 'VERSION') and self.config.OpenAPI.VERSION:
+                    self.app.version = self.config.OpenAPI.VERSION
+                if hasattr(self.config.OpenAPI, 'DESCRIPTION') and self.config.OpenAPI.DESCRIPTION:
+                    self.app.description = self.config.OpenAPI.DESCRIPTION
+
                 # Respect None values for individual endpoints
                 self.app.docs_url = self.config.OpenAPI.DOCS_PATH if self.config.OpenAPI.DOCS_PATH else None
                 self.app.redoc_url = self.config.OpenAPI.REDOC_PATH if self.config.OpenAPI.REDOC_PATH else None

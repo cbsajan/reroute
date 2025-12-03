@@ -1,0 +1,68 @@
+"""
+Login Route - POST /auth/login
+
+Authenticates user and returns JWT tokens.
+"""
+
+from reroute import RouteBase
+from reroute.decorators import rate_limit
+from reroute.params import Body
+from logger import get_logger
+
+from app.auth import create_access_token, create_refresh_token, verify_password
+from app.models.auth import UserLogin, TokenResponse
+
+logger = get_logger(__name__)
+
+
+class LoginRoutes(RouteBase):
+    """
+    Handles user authentication.
+
+    POST /auth/login - Authenticate and get tokens
+    """
+
+    tag = "Auth"
+
+    def __init__(self):
+        super().__init__()
+        # TODO(human): Initialize your user storage/database connection
+        # Example: self.db = get_database()
+        self.users = {}  # Replace with actual database
+
+    @rate_limit("5/min")
+    def post(self, credentials: UserLogin = Body(...)):
+        """
+        Authenticate user and return JWT tokens.
+
+        Returns access_token and refresh_token on success.
+        """
+        logger.info(f"Login attempt for: {credentials.email}")
+
+        # TODO(human): Implement user lookup from database
+        # Example:
+        # user = self.db.query(User).filter(User.email == credentials.email).first()
+        # if not user or not verify_password(credentials.password, user.password_hash):
+        #     return {"error": "Invalid credentials"}, 401
+
+        # Placeholder - Replace with actual user lookup
+        user = self.users.get(credentials.email)
+        if not user:
+            return {"error": "Invalid email or password"}, 401
+
+        if not verify_password(credentials.password, user["password_hash"]):
+            return {"error": "Invalid email or password"}, 401
+
+        # Create tokens
+        token_data = {"sub": str(user["id"]), "email": user["email"]}
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        logger.info(f"Login successful for: {credentials.email}")
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 1800
+        }

@@ -9,12 +9,8 @@ from InquirerPy import inquirer
 from pathlib import Path
 import sys
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from packaging import version
-from reroute import __version__
 from .helpers import validate_project_name
-
-# Feature gate version for database support
-DB_FEATURE_VERSION = "0.2.0"
+from ..utils import progress_step, success_message, next_steps, handle_error, CLIError
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -37,7 +33,10 @@ jinja_env = Environment(
 @click.option('--host', default='0.0.0.0', help='Server host')
 @click.option('--port', default=7376, type=int, help='Server port')
 @click.option('--description', default='', help='Project description')
-def init(name, framework, config, host, port, description):
+@click.option('--database', '-db', default=None,
+              type=click.Choice(['postgresql', 'mysql', 'sqlite', 'mongodb', 'none'], case_sensitive=False),
+              help='Database type (postgresql, mysql, sqlite, mongodb, or none)')
+def init(name, framework, config, host, port, description, database):
     """
     Initialize a new REROUTE project.
 
@@ -50,6 +49,8 @@ def init(name, framework, config, host, port, description):
     Examples:
         reroute init
         reroute init myapi --framework fastapi
+        reroute init myapi --framework fastapi --database postgresql
+        reroute init myapi -db sqlite
     """
     click.secho("\n" + "="*50, fg='cyan', bold=True)
     click.secho("REROUTE Project Initialization", fg='cyan', bold=True)
@@ -98,25 +99,48 @@ def init(name, framework, config, host, port, description):
     ).execute()
     include_tests = generate_tests == 'Yes'
 
-    # Database setup prompt (Feature gated - available from 0.2.0)
-    db_type = None
-    if version.parse(__version__) >= version.parse(DB_FEATURE_VERSION):
-        include_db = inquirer.confirm(
-            message="Would you like to set up a database?",
-            default=False
-        ).execute()
+    # Database setup - feature gated until v0.2.0
+    from reroute import FEATURE_FLAGS
 
-        if include_db:
-            db_type = inquirer.select(
-                message="Which database would you like to use?",
-                choices=[
-                    {'name': 'PostgreSQL', 'value': 'postgresql'},
-                    {'name': 'MySQL', 'value': 'mysql'},
-                    {'name': 'SQLite (Local file)', 'value': 'sqlite'},
-                    {'name': 'MongoDB (NoSQL)', 'value': 'mongodb'}
-                ],
-                default='postgresql'
+    db_type = None
+    if database and database.lower() != 'none':
+        # CLI flag provided - check feature flag
+        if not FEATURE_FLAGS.get("database_init", False):
+            click.secho("\n" + "="*50, fg='yellow', bold=True)
+            click.secho("[PREVIEW] Database Setup", fg='yellow', bold=True)
+            click.secho("="*50, fg='yellow')
+            click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
+            click.secho("\nWhat it will do:", fg='white')
+            click.secho("  - Generate database.py with connection config", fg='white')
+            click.secho("  - Create .env.example with database URL template", fg='white')
+            click.secho("  - Generate example User model in app/db_models/", fg='white')
+            click.secho("  - Set up Alembic migrations structure", fg='white')
+            click.secho("\nPlanned usage:", fg='white')
+            click.secho("  reroute init myapi --database postgresql", fg='green')
+            click.secho("  reroute init myapi -db sqlite", fg='green')
+            click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
+            click.secho("\nContinuing without database setup...\n", fg='yellow')
+        else:
+            db_type = database.lower()
+    elif not database:
+        # No flag provided - only prompt if feature is enabled
+        if FEATURE_FLAGS.get("database_init", False):
+            include_db = inquirer.confirm(
+                message="Would you like to set up a database?",
+                default=False
             ).execute()
+
+            if include_db:
+                db_type = inquirer.select(
+                    message="Which database would you like to use?",
+                    choices=[
+                        {'name': 'PostgreSQL', 'value': 'postgresql'},
+                        {'name': 'MySQL', 'value': 'mysql'},
+                        {'name': 'SQLite (Local file)', 'value': 'sqlite'},
+                        {'name': 'MongoDB (NoSQL)', 'value': 'mongodb'}
+                    ],
+                    default='postgresql'
+                ).execute()
 
     # Review section - show configuration
     click.secho("\n" + "="*50, fg='yellow', bold=True)
@@ -148,52 +172,49 @@ def init(name, framework, config, host, port, description):
         sys.exit(0)
 
     try:
-        # Create project structure
-        click.secho(f"Creating project: ", fg='blue', nl=False)
+        # Create project structure with progress indicators
+        click.secho(f"\nCreating project: ", fg='blue', nl=False)
         click.secho(name, fg='green', bold=True)
-        _create_project_structure(project_dir, framework)
+        click.echo()
 
-        # Generate config file
-        click.secho("Creating config.py...", fg='blue')
-        _generate_config_file(project_dir, config, host, port)
+        with progress_step("Creating project structure"):
+            _create_project_structure(project_dir, framework)
 
-        # Generate logger file
-        click.secho("Creating logger.py...", fg='blue')
-        _generate_logger_file(project_dir, name)
+        with progress_step("Creating config.py"):
+            _generate_config_file(project_dir, config, host, port)
 
-        # Generate main app file
-        click.secho(f"Generating {framework.upper()} application...", fg='blue')
-        _generate_app_file(project_dir, name, framework, config, host, port, description)
+        with progress_step("Creating logger.py"):
+            _generate_logger_file(project_dir, name)
 
-        # Generate example route
-        click.secho("Creating example route...", fg='blue')
-        _generate_example_route(project_dir)
+        with progress_step(f"Generating {framework.upper()} application"):
+            _generate_app_file(project_dir, name, framework, config, host, port, description)
 
-        # Generate test cases if requested
+        with progress_step("Creating example route"):
+            _generate_example_route(project_dir)
+
         if include_tests:
-            click.secho("Creating test cases...", fg='blue')
-            _generate_tests(project_dir, framework)
+            with progress_step("Creating test cases"):
+                _generate_tests(project_dir, framework)
 
-        # Generate .env.example file
-        click.secho("Creating .env.example...", fg='blue')
-        _generate_env_file(project_dir, name, db_type)
+        with progress_step("Creating .env.example"):
+            _generate_env_file(project_dir, name, db_type)
 
-        # Generate database files if enabled
         if db_type:
-            click.secho("Creating database configuration...", fg='blue')
-            _generate_database_files(project_dir, name, db_type)
+            with progress_step("Creating database configuration"):
+                _generate_database_files(project_dir, name, db_type)
 
-        # Create requirements.txt (legacy, will be removed in v0.3.0)
-        click.secho("Creating requirements.txt...", fg='blue')
-        _create_requirements(project_dir, framework, include_tests, db_type)
+        with progress_step("Creating requirements.txt"):
+            _create_requirements(project_dir, framework, include_tests, db_type)
 
-        # Create pyproject.toml (modern, uv-compatible)
-        click.secho("Creating pyproject.toml...", fg='blue')
-        _create_pyproject(project_dir, name, framework, include_tests, db_type)
+        with progress_step("Creating pyproject.toml"):
+            _create_pyproject(project_dir, name, framework, include_tests, db_type)
 
-        click.secho("\n" + "="*50, fg='green', bold=True)
-        click.secho("[OK] Project created successfully!", fg='green', bold=True)
-        click.secho("="*50 + "\n", fg='green', bold=True)
+        # Success message
+        success_message("Project created successfully!", {
+            "Project": name,
+            "Framework": framework.upper(),
+            "Location": str(project_dir)
+        })
 
         # Show database-specific tips if database was configured
         if db_type:
@@ -208,20 +229,23 @@ def init(name, framework, config, host, port, description):
             click.secho(f"    {click.style('4.', fg='yellow')} Run: {click.style('reroute db upgrade', fg='bright_white')}")
             click.secho("")
 
-        # Show next steps
-        click.secho("Next steps:", fg='yellow', bold=True)
-        click.secho(f"  cd {name}", fg='cyan')
-        click.secho("\n  # Option 1: Using pip (traditional)", fg='white', dim=True)
-        click.secho("  pip install -r requirements.txt", fg='cyan')
-        click.secho("\n  # Option 2: Using uv (faster, modern)", fg='white', dim=True)
-        click.secho("  uv pip install -e .", fg='cyan')
-        click.secho(f"\n  python main.py", fg='cyan')
-        click.secho("\nHappy Coding!", fg='yellow', bold=True)
+        # Show next steps using utility
+        steps = [
+            f"cd {name}",
+            "pip install -r requirements.txt  # or: uv pip install -e .",
+            "python main.py",
+        ]
+        next_steps(steps)
+
+        click.secho("Happy Coding!", fg='yellow', bold=True)
         click.secho(f"\nAPI Docs: ", fg='yellow', nl=False)
         click.secho(f"http://localhost:{port}/docs\n", fg='magenta', bold=True)
 
+    except CLIError as e:
+        handle_error(e, context="Project creation")
+        sys.exit(1)
     except Exception as e:
-        click.secho(f"\n[ERROR] Failed to create project: {e}", fg='red', bold=True)
+        handle_error(e, context="Failed to create project")
         sys.exit(1)
 
 

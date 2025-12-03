@@ -1,0 +1,85 @@
+"""
+Register Route - POST /auth/register
+
+Handles new user registration.
+"""
+
+from reroute import RouteBase
+from reroute.decorators import rate_limit
+from reroute.params import Body
+from logger import get_logger
+
+from app.auth import hash_password
+from app.models.auth import UserRegister, UserResponse, MessageResponse
+
+logger = get_logger(__name__)
+
+
+class RegisterRoutes(RouteBase):
+    """
+    Handles user registration.
+
+    POST /auth/register - Create new user account
+    """
+
+    tag = "Auth"
+
+    def __init__(self):
+        super().__init__()
+        # TODO(human): Initialize your user storage/database connection
+        # Example: self.db = get_database()
+        self.users = {}  # Replace with actual database
+        self.next_id = 1
+
+    @rate_limit("3/min")
+    def post(self, user_data: UserRegister = Body(...)):
+        """
+        Register a new user account.
+
+        Returns user info on success (without password).
+        """
+        logger.info(f"Registration attempt for: {user_data.email}")
+
+        # TODO(human): Implement duplicate email check in database
+        # Example:
+        # existing = self.db.query(User).filter(User.email == user_data.email).first()
+        # if existing:
+        #     return {"error": "Email already registered"}, 400
+
+        # Placeholder - Replace with actual duplicate check
+        if user_data.email in self.users:
+            return {"error": "Email already registered"}, 400
+
+        # Hash password
+        password_hash = hash_password(user_data.password)
+
+        # TODO(human): Save user to database
+        # Example:
+        # new_user = User(
+        #     email=user_data.email,
+        #     password_hash=password_hash,
+        #     name=user_data.name
+        # )
+        # self.db.add(new_user)
+        # self.db.commit()
+
+        # Placeholder - Replace with actual database insert
+        new_user = {
+            "id": self.next_id,
+            "email": user_data.email,
+            "password_hash": password_hash,
+            "name": user_data.name
+        }
+        self.users[user_data.email] = new_user
+        self.next_id += 1
+
+        logger.info(f"User registered successfully: {user_data.email}")
+
+        return {
+            "message": "User registered successfully",
+            "user": {
+                "id": new_user["id"],
+                "email": new_user["email"],
+                "name": new_user["name"]
+            }
+        }

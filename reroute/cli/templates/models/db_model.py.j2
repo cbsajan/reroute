@@ -20,8 +20,15 @@ Common options:
 - unique=True: Value must be unique
 - default=value: Default value
 - index=True: Create database index for faster queries
+
+Inherited from Model base class:
+- id: Primary key (auto-increment)
+- created_at: Creation timestamp (auto-set)
+- updated_at: Last update timestamp (auto-update)
 """
 
+from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from reroute.db.models import Model
 
 
@@ -30,24 +37,18 @@ class {{ model_name }}(Model):
     __tablename__ = '{{ table_name }}'
 
     # Fields - Customize as needed
-    {% for field in fields -%}
-    {{ field.name }} = Column(
-        {{ field.type }}
-        {%- if field.unique %}, unique=True{% endif %}
-        {%- if field.nullable is defined and not field.nullable %}, nullable=False{% endif %}
-        {%- if field.default is defined %}, default={{ field.default }}{% endif %}
-        {%- if field.index %}, index=True{% endif %}
-    )
-    {% endfor %}
+{% for field in fields %}
+    {{ field.name }} = Column({{ field.type }}{% if field.unique %}, unique=True{% endif %}{% if field.nullable is defined and not field.nullable %}, nullable=False{% endif %}{% if field.default is defined %}, default={{ field.default }}{% endif %}{% if field.index %}, index=True{% endif %})
+{% endfor %}
+    # TODO: Add more fields here
+    # Example:
+    # age = Column(Integer, nullable=True)
+    # is_active = Column(Boolean, default=True)
+    # bio = Column(Text, nullable=True)
 
     # TODO: Add relationships here
     # Example:
-    # user = relationship('User', back_populates='{{ table_name }}')
-
-    # TODO: Add custom methods here
-    # Example:
-    # def get_display_name(self):
-    #     return self.name.upper()
+    # posts = relationship('Post', back_populates='author')
 
     def __repr__(self):
-        return f"<{{ model_name }}(id={self.id}, name='{self.name}')>"
+        return f"<{{ model_name }}(id={self.id})>"
