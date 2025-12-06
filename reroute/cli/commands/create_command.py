@@ -11,7 +11,6 @@ import re
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from .._template_loader import jinja_env, TEMPLATES_DIR
-from ..utils.version_gating import gate_feature, is_feature_enabled
 from .helpers import is_reroute_project, create_route_directory, to_class_name, to_pascal_case, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
 
 
