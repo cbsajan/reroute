@@ -42,15 +42,7 @@ Full Import Guide:
     from reroute.logging import get_logger
 """
 
-__version__ = "0.1.9"
-
-# Feature flags for unreleased features (will be enabled in future versions)
-# These features are hidden and disabled until their target release
-FEATURE_FLAGS = {
-    "dbmodel_command": False,   # Target: v0.2.0 - Database model generation
-    "database_init": False,     # Target: v0.2.0 - Database setup in init command
-    "auth_scaffolding": False,  # Target: v0.2.0 - JWT auth scaffolding
-}
+__version__ = "0.2.0"
 
 
 # Core essentials for minimal usage

@@ -100,15 +100,20 @@ class Config:
     PORT = 7376
 
     # CORS Configuration (applied globally to all routes)
+    # SECURITY: Default to restrictive origins for production safety
     ENABLE_CORS = True
-    CORS_ALLOW_ORIGINS = ["*"]  # List of allowed origins or ["*"] for all
+    # In production, set explicit origins in your environment:
+    #   REROUTE_CORS_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
+    CORS_ALLOW_ORIGINS = ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000", "http://127.0.0.1:8080"]
     CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    CORS_ALLOW_HEADERS = ["*"]  # List of allowed headers or ["*"] for all
+    # Only allow common safe headers by default
+    CORS_ALLOW_HEADERS = ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
     CORS_ALLOW_CREDENTIALS = False
 
     # Health Check Configuration
     HEALTH_CHECK_ENABLED = True  # Enable /health endpoint for load balancers
     HEALTH_CHECK_PATH = "/health"  # Path for health check endpoint
+    HEALTH_CHECK_AUTHENTICATED = False  # Set True to require auth for detailed health metrics
 
     def __init_subclass__(cls, **kwargs):
         """

@@ -10,17 +10,9 @@ import sys
 import re
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from .._template_loader import jinja_env, TEMPLATES_DIR
+from ..utils.version_gating import gate_feature, is_feature_enabled
 from .helpers import is_reroute_project, create_route_directory, to_class_name, to_pascal_case, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
-
-# Setup Jinja2 environment
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-jinja_env = Environment(
-    loader=FileSystemLoader(str(TEMPLATES_DIR)),
-    autoescape=select_autoescape(),
-    trim_blocks=True,
-    lstrip_blocks=True
-)
 
 
 @click.group()
@@ -602,41 +594,21 @@ def create_crud(path, name, operations, http_test, dry_run, auto_migrate):
     ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test, dry_run=dry_run, auto_migrate=auto_migrate)
 
 
-@create.command(name='dbmodel', hidden=True)
+@create.command(name='dbmodel')
 @click.option('--name', default=None,
               help='Name of the database model (singular, e.g., User)')
 def create_dbmodel(name):
     """
-    [PREVIEW] Create a SQLAlchemy database model.
+    Create a SQLAlchemy database model.
 
-    This feature is coming in v0.2.0. Currently in preview mode.
-    Creates a database model that inherits from reroute.db.models.Model.
+    Creates a database model that inherits from reroute.db.models.Model
+    with common fields like id, created_at, and updated_at.
 
     Examples:
         reroute create dbmodel --name User
         reroute create dbmodel --name Product
     """
-    from reroute import FEATURE_FLAGS
 
-    # Check feature flag
-    if not FEATURE_FLAGS.get("dbmodel_command", False):
-        click.secho("\n" + "="*50, fg='yellow', bold=True)
-        click.secho("[PREVIEW] DBModel Command", fg='yellow', bold=True)
-        click.secho("="*50, fg='yellow')
-        click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
-        click.secho("\nWhat it will do:", fg='white')
-        click.secho("  - Generate SQLAlchemy models with common fields", fg='white')
-        click.secho("  - Inherit from reroute.db.models.Model base class", fg='white')
-        click.secho("  - Include id, created_at, updated_at automatically", fg='white')
-        click.secho("  - Support relationships and custom fields", fg='white')
-        click.secho("\nPlanned usage:", fg='white')
-        click.secho("  reroute create dbmodel --name User", fg='green')
-        click.secho("  reroute create dbmodel --name Product", fg='green')
-        click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
-        click.echo()
-        return
-
-    # Feature implementation (for v0.2.0)
     click.secho("\n" + "="*50, fg='cyan', bold=True)
     click.secho("Generating Database Model", fg='cyan', bold=True)
     click.secho("="*50 + "\n", fg='cyan', bold=True)
@@ -750,15 +722,14 @@ def create_model(name):
     ctx.invoke(generate_model, name=name)
 
 
-@create.command(name='auth', hidden=True)
+@create.command(name='auth')
 @click.option('--method', '-m', default='jwt',
               type=click.Choice(['jwt'], case_sensitive=False),
               help='Authentication method (jwt)')
 def create_auth(method):
     """
-    [PREVIEW] Create authentication scaffolding.
+    Create authentication scaffolding.
 
-    This feature is coming in v0.2.0. Currently in preview mode.
     Generates JWT authentication with login, register, refresh, and profile routes.
 
     Examples:
@@ -766,30 +737,6 @@ def create_auth(method):
         reroute create auth -m jwt
     """
     import secrets
-    from reroute import FEATURE_FLAGS
-
-    # Check feature flag
-    if not FEATURE_FLAGS.get("auth_scaffolding", False):
-        click.secho("\n" + "="*50, fg='yellow', bold=True)
-        click.secho("[PREVIEW] Auth Scaffolding", fg='yellow', bold=True)
-        click.secho("="*50, fg='yellow')
-        click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
-        click.secho("\nWhat it will generate:", fg='white')
-        click.secho("  - app/auth/ module (jwt.py, password.py)", fg='white')
-        click.secho("  - app/models/auth.py (Pydantic schemas)", fg='white')
-        click.secho("  - app/routes/auth/ routes:", fg='white')
-        click.secho("    - POST /auth/login", fg='green')
-        click.secho("    - POST /auth/register", fg='green')
-        click.secho("    - POST /auth/refresh", fg='green')
-        click.secho("    - GET /auth/me (protected)", fg='green')
-        click.secho("  - JWT config in config.py", fg='white')
-        click.secho("\nPlanned usage:", fg='white')
-        click.secho("  reroute create auth --method jwt", fg='green')
-        click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
-        click.echo()
-        return
-
-    # Feature implementation (for v0.2.0)
     click.secho("\n" + "="*50, fg='cyan', bold=True)
     click.secho("Generating Auth Scaffolding", fg='cyan', bold=True)
     click.secho("="*50 + "\n", fg='cyan', bold=True)
@@ -1027,8 +974,15 @@ def _run_auto_migrate(resource_name: str) -> bool:
     try:
         # Step 1: Create migration
         click.secho(f"  Creating migration for {resource_name}...", fg='white')
+
+        # Sanitize migration message to prevent command injection
+        safe_resource_name = ''.join(c for c in resource_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        if not safe_resource_name:
+            safe_resource_name = 'resource'
+
+        migration_message = f'Add {safe_resource_name} CRUD'
         migrate_result = subprocess.run(
-            ['alembic', 'revision', '--autogenerate', '-m', f'Add {resource_name} CRUD'],
+            ['alembic', 'revision', '--autogenerate', '-m', migration_message],
             capture_output=True,
             text=True,
             cwd=str(Path.cwd())

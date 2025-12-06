@@ -58,6 +58,9 @@ class FastAPIAdapter:
         # Setup CORS
         self._setup_cors()
 
+        # Setup request size limiting
+        self._setup_request_size_limits()
+
         # Setup health check endpoint
         self._setup_health_check()
 
@@ -82,8 +85,89 @@ class FastAPIAdapter:
                 "version": self.app.version or "1.0.0"
             }
 
+        # Add a protected health endpoint with detailed status (requires auth)
+        if hasattr(self.config, 'HEALTH_CHECK_AUTHENTICATED') and self.config.HEALTH_CHECK_AUTHENTICATED:
+            from reroute.decorators import requires
+
+            @self.app.get(f"{health_path}/detailed", tags=["Health"], include_in_schema=True)
+            @requires(roles="admin", check_func=lambda req: True)  # Require admin role
+            async def detailed_health_check(request):
+                """
+                Detailed health check with system metrics (admin only).
+                """
+                import psutil
+                import time
+
+                # Get system metrics
+                cpu_percent = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
+
+                return {
+                    "status": "healthy",
+                    "service": self.app.title or "REROUTE API",
+                    "version": self.app.version or "1.0.0",
+                    "timestamp": time.time(),
+                    "system": {
+                        "cpu_percent": cpu_percent,
+                        "memory": {
+                            "total": memory.total,
+                            "available": memory.available,
+                            "percent": memory.percent
+                        },
+                        "disk": {
+                            "total": disk.total,
+                            "free": disk.free,
+                            "percent": (disk.used / disk.total) * 100
+                        }
+                    }
+                }
+
         if self.config.VERBOSE_LOGGING:
             print(f"[OK] Health check endpoint: {health_path}")
+
+    def _setup_request_size_limits(self) -> None:
+        """Setup request size limiting middleware to prevent DoS attacks."""
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.responses import JSONResponse
+
+        # Default to 16MB if not configured
+        max_request_size = getattr(self.config, 'MAX_REQUEST_SIZE', 16 * 1024 * 1024)  # 16MB
+
+        class RequestSizeMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                # Check Content-Length for requests with body
+                content_length = request.headers.get("content-length")
+                if content_length:
+                    try:
+                        content_length_value = int(content_length)
+                        if content_length_value > max_request_size:
+                            return JSONResponse(
+                                status_code=413,
+                                content={
+                                    "error": "Request Entity Too Large",
+                                    "max_size": max_request_size,
+                                    "received": content_length_value
+                                }
+                            )
+                    except ValueError:
+                        # Invalid Content-Length header
+                        return JSONResponse(
+                            status_code=400,
+                            content={"error": "Invalid Content-Length header"}
+                        )
+
+                # For chunked requests, we need to check during streaming
+                # This is a basic protection - full protection would require
+                # streaming body size checking which is more complex
+                response = await call_next(request)
+                return response
+
+        # Add the middleware to the FastAPI app
+        self.app.add_middleware(RequestSizeMiddleware)
+
+        if self.config.VERBOSE_LOGGING:
+            print(f"[OK] Request size limit: {max_request_size / (1024*1024):.1f}MB")
 
     def register_routes(self) -> None:
         """

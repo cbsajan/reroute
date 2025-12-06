@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 from reroute.cli.commands.db_commands import db  # type: ignore
 from reroute.cli.commands.init_command import init
 from reroute.cli.commands.create_command import generate, create
+from reroute.cli.commands import undo_command
 from reroute.cli.commands.helpers import is_reroute_project
 from reroute.cli.update_checker import check_for_updates
 from reroute.cli.utils import CLIError, handle_error
@@ -52,6 +53,7 @@ cli.add_command(db)  # type: ignore
 cli.add_command(init) # type: ignore
 cli.add_command(generate) # type: ignore
 cli.add_command(create) # type: ignore
+cli.add_command(undo_command.undo) # type: ignore
 
 
 # TODO: Implement/use later

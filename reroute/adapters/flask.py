@@ -157,6 +157,9 @@ class FlaskAdapter:
         # Setup CORS
         self._setup_cors()
 
+        # Setup request size limiting
+        self._setup_request_size_limits()
+
         # Setup health check endpoint
         self._setup_health_check()
 
@@ -176,8 +179,80 @@ class FlaskAdapter:
                 "version": getattr(self.config.OpenAPI, 'VERSION', '1.0.0') if hasattr(self.config, 'OpenAPI') else '1.0.0'
             })
 
+        # Add a protected health endpoint with detailed status (requires auth)
+        if hasattr(self.config, 'HEALTH_CHECK_AUTHENTICATED') and self.config.HEALTH_CHECK_AUTHENTICATED:
+            from reroute.decorators import requires
+
+            @self.app.route(f"{health_path}/detailed", methods=['GET'])
+            @requires(roles="admin", check_func=lambda req: True)  # Require admin role
+            def detailed_health_check():
+                """Detailed health check with system metrics (admin only)."""
+                try:
+                    import psutil
+                    import time
+
+                    # Get system metrics
+                    cpu_percent = psutil.cpu_percent(interval=1)
+                    memory = psutil.virtual_memory()
+                    disk = psutil.disk_usage('/')
+
+                    return self.jsonify({
+                        "status": "healthy",
+                        "service": self.app.name or "REROUTE API",
+                        "version": getattr(self.config.OpenAPI, 'VERSION', '1.0.0') if hasattr(self.config, 'OpenAPI') else '1.0.0',
+                        "timestamp": time.time(),
+                        "system": {
+                            "cpu_percent": cpu_percent,
+                            "memory": {
+                                "total": memory.total,
+                                "available": memory.available,
+                                "percent": memory.percent
+                            },
+                            "disk": {
+                                "total": disk.total,
+                                "free": disk.free,
+                                "percent": (disk.used / disk.total) * 100
+                            }
+                        }
+                    })
+                except ImportError:
+                    return self.jsonify({
+                        "status": "healthy",
+                        "service": self.app.name or "REROUTE API",
+                        "version": getattr(self.config.OpenAPI, 'VERSION', '1.0.0') if hasattr(self.config, 'OpenAPI') else '1.0.0',
+                        "message": "Install psutil for detailed metrics: pip install psutil"
+                    })
+
         if self.config.VERBOSE_LOGGING:
             click.secho(f"[OK] Health check endpoint: {health_path}", fg='green')
+
+    def _setup_request_size_limits(self) -> None:
+        """Setup request size limiting to prevent DoS attacks."""
+        # Default to 16MB if not configured
+        max_request_size = getattr(self.config, 'MAX_REQUEST_SIZE', 16 * 1024 * 1024)  # 16MB
+
+        @self.app.before_request
+        def check_request_size():
+            """Check request size before processing."""
+            # Check Content-Length for requests with body
+            content_length = self.request.headers.get("content-length")
+            if content_length:
+                try:
+                    content_length_value = int(content_length)
+                    if content_length_value > max_request_size:
+                        return self.jsonify({
+                            "error": "Request Entity Too Large",
+                            "max_size": max_request_size,
+                            "received": content_length_value
+                        }), 413
+                except ValueError:
+                    # Invalid Content-Length header
+                    return self.jsonify({
+                        "error": "Invalid Content-Length header"
+                    }), 400
+
+        if self.config.VERBOSE_LOGGING:
+            click.secho(f"[OK] Request size limit: {max_request_size / (1024*1024):.1f}MB", fg='green')
 
     def register_routes(self) -> None:
         """
