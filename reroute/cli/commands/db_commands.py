@@ -380,6 +380,7 @@ def current():
         raise
     except Exception as e:
         handle_error(e, context="Getting current migration")
+        sys.exit(1)
 
 
 @db.command()
@@ -420,3 +421,4 @@ def history():
         raise
     except Exception as e:
         handle_error(e, context="Getting migration history")
+        sys.exit(1)

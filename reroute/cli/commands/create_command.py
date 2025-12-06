@@ -47,7 +47,9 @@ def generate():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def generate_route(path, name, methods, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+def generate_route(path, name, methods, http_test, dry_run):
     """
     Generate a new route file.
 
@@ -121,8 +123,9 @@ def generate_route(path, name, methods, http_test):
 
         # Calculate route directory path (without creating it yet)
         routes_dir = Path.cwd() / "app" / "routes"
-        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
-        route_dir = routes_dir / route_path_clean
+        route_path_clean = path.strip('/')
+        # Convert URL path segments to proper file system path
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
         route_file = route_dir / "page.py"
 
         # Check for duplicate class name
@@ -185,6 +188,22 @@ def generate_route(path, name, methods, http_test):
             methods=methods_list
         )
 
+        # Dry-run mode: show preview without creating files
+        if dry_run:
+            click.secho("\n[DRY-RUN] Preview of changes (no files will be created):", fg='yellow', bold=True)
+            click.secho("=" * 50, fg='yellow')
+            click.secho(f"\nWould create: {route_file}", fg='cyan')
+            click.secho(f"  Path: {path}", fg='magenta')
+            click.secho(f"  Class: {class_name}", fg='green')
+            click.secho(f"  Methods: {', '.join(methods_list)}", fg='yellow')
+            if http_test:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
+            click.echo()
+            return
+
         # NOW create the directory (after all validations and inputs are complete)
         route_dir.mkdir(parents=True, exist_ok=True)
 
@@ -228,7 +247,11 @@ def generate_route(path, name, methods, http_test):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def generate_crud(path, name, operations, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+@click.option('--auto-migrate', is_flag=True, default=False,
+              help='Automatically create and apply database migration')
+def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
     """
     Generate a full CRUD route.
 
@@ -302,8 +325,9 @@ def generate_crud(path, name, operations, http_test):
 
         # Calculate route directory path (without creating it yet)
         routes_dir = Path.cwd() / "app" / "routes"
-        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
-        route_dir = routes_dir / route_path_clean
+        route_path_clean = path.strip('/')
+        # Convert URL path segments to proper file system path
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
         route_file = route_dir / "page.py"
 
         # Check for duplicate class name
@@ -343,6 +367,26 @@ def generate_crud(path, name, operations, http_test):
             operations=operations_list
         )
 
+        # Dry-run mode: show preview without creating files
+        if dry_run:
+            click.secho("\n[DRY-RUN] Preview of changes (no files will be created):", fg='yellow', bold=True)
+            click.secho("=" * 50, fg='yellow')
+            click.secho(f"\nWould create: {route_file}", fg='cyan')
+            click.secho(f"  Path: {path}", fg='magenta')
+            click.secho(f"  Class: {class_name}", fg='green')
+            click.secho(f"  Operations: {', '.join(operations_list)}", fg='yellow')
+            if http_test:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            if auto_migrate:
+                click.secho(f"\nWould run:", fg='blue')
+                click.secho(f"  1. reroute db migrate -m 'Add {name} CRUD'", fg='white')
+                click.secho(f"  2. reroute db upgrade", fg='white')
+            click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
+            click.echo()
+            return
+
         # NOW create the directory (after all validations and inputs are complete)
         route_dir.mkdir(parents=True, exist_ok=True)
 
@@ -363,6 +407,11 @@ def generate_crud(path, name, operations, http_test):
             http_file = _generate_http_test_file(path, name, 'crud')
             click.secho(f"[OK] HTTP test created: ", fg='green', bold=True, nl=False)
             click.secho(f"{http_file}", fg='cyan')
+
+        # Auto-migrate: create and apply database migration
+        if auto_migrate:
+            click.echo()
+            _run_auto_migrate(name)
 
         click.echo()
 
@@ -499,7 +548,9 @@ def create():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def create_route(path, name, methods, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+def create_route(path, name, methods, http_test, dry_run):
     """
     Create a new route file.
 
@@ -509,11 +560,12 @@ def create_route(path, name, methods, http_test):
     Examples:
         reroute create route
         reroute create route --path /users --name Users
+        reroute create route --path /posts --dry-run
     """
     # Call the same logic as generate_route
     from click import Context
     ctx = Context(generate_route)
-    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test)
+    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test, dry_run=dry_run)
 
 
 @create.command(name='crud')
@@ -527,7 +579,11 @@ def create_route(path, name, methods, http_test):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def create_crud(path, name, operations, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+@click.option('--auto-migrate', is_flag=True, default=False,
+              help='Automatically create and apply database migration')
+def create_crud(path, name, operations, http_test, dry_run, auto_migrate):
     """
     Create a full CRUD route.
 
@@ -537,11 +593,13 @@ def create_crud(path, name, operations, http_test):
     Examples:
         reroute create crud
         reroute create crud --path /users --name User
+        reroute create crud --path /posts --dry-run
+        reroute create crud --path /products --auto-migrate
     """
     # Call the same logic as generate_crud
     from click import Context
     ctx = Context(generate_crud)
-    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test)
+    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test, dry_run=dry_run, auto_migrate=auto_migrate)
 
 
 @create.command(name='dbmodel', hidden=True)
@@ -935,3 +993,77 @@ def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
     http_file.write_text(content)
 
     return http_file
+
+
+def _run_auto_migrate(resource_name: str) -> bool:
+    """
+    Automatically create and apply database migration.
+
+    Args:
+        resource_name: Name of the resource (for migration message)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import subprocess
+
+    click.secho("[AUTO-MIGRATE] Running database migrations...", fg='blue', bold=True)
+
+    # Check if migrations directory exists
+    migrations_dir = Path.cwd() / "migrations"
+    if not migrations_dir.exists():
+        click.secho("  [WARN] Migrations not initialized.", fg='yellow')
+        click.secho("  [TIP] Run 'reroute db init' first, then 'reroute db migrate'", fg='blue')
+        return False
+
+    # Check if alembic is installed
+    try:
+        import alembic  # noqa: F401
+    except ImportError:
+        click.secho("  [WARN] Alembic not installed.", fg='yellow')
+        click.secho("  [TIP] Install with: pip install alembic", fg='blue')
+        return False
+
+    try:
+        # Step 1: Create migration
+        click.secho(f"  Creating migration for {resource_name}...", fg='white')
+        migrate_result = subprocess.run(
+            ['alembic', 'revision', '--autogenerate', '-m', f'Add {resource_name} CRUD'],
+            capture_output=True,
+            text=True,
+            cwd=str(Path.cwd())
+        )
+
+        if migrate_result.returncode != 0:
+            click.secho(f"  [ERROR] Failed to create migration", fg='red')
+            if migrate_result.stderr:
+                click.secho(f"  {migrate_result.stderr.strip()}", fg='red')
+            return False
+
+        click.secho("  [OK] Migration created", fg='green')
+
+        # Step 2: Apply migration
+        click.secho("  Applying migration...", fg='white')
+        upgrade_result = subprocess.run(
+            ['alembic', 'upgrade', 'head'],
+            capture_output=True,
+            text=True,
+            cwd=str(Path.cwd())
+        )
+
+        if upgrade_result.returncode != 0:
+            click.secho(f"  [ERROR] Failed to apply migration", fg='red')
+            if upgrade_result.stderr:
+                click.secho(f"  {upgrade_result.stderr.strip()}", fg='red')
+            return False
+
+        click.secho("  [OK] Migration applied", fg='green')
+        return True
+
+    except FileNotFoundError:
+        click.secho("  [ERROR] 'alembic' command not found in PATH", fg='red')
+        click.secho("  [TIP] Ensure alembic is installed: pip install alembic", fg='blue')
+        return False
+    except Exception as e:
+        click.secho(f"  [ERROR] Migration failed: {e}", fg='red')
+        return False

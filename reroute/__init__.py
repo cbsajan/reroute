@@ -42,7 +42,7 @@ Full Import Guide:
     from reroute.logging import get_logger
 """
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 # Feature flags for unreleased features (will be enabled in future versions)
 # These features are hidden and disabled until their target release
