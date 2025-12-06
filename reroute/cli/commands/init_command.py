@@ -99,48 +99,29 @@ def init(name, framework, config, host, port, description, database):
     ).execute()
     include_tests = generate_tests == 'Yes'
 
-    # Database setup - feature gated until v0.2.0
-    from reroute import FEATURE_FLAGS
-
+    # Database setup (available in v0.2.0+)
     db_type = None
     if database and database.lower() != 'none':
-        # CLI flag provided - check feature flag
-        if not FEATURE_FLAGS.get("database_init", False):
-            click.secho("\n" + "="*50, fg='yellow', bold=True)
-            click.secho("[PREVIEW] Database Setup", fg='yellow', bold=True)
-            click.secho("="*50, fg='yellow')
-            click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
-            click.secho("\nWhat it will do:", fg='white')
-            click.secho("  - Generate database.py with connection config", fg='white')
-            click.secho("  - Create .env.example with database URL template", fg='white')
-            click.secho("  - Generate example User model in app/db_models/", fg='white')
-            click.secho("  - Set up Alembic migrations structure", fg='white')
-            click.secho("\nPlanned usage:", fg='white')
-            click.secho("  reroute init myapi --database postgresql", fg='green')
-            click.secho("  reroute init myapi -db sqlite", fg='green')
-            click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
-            click.secho("\nContinuing without database setup...\n", fg='yellow')
-        else:
-            db_type = database.lower()
+        # CLI flag provided
+        db_type = database.lower()
     elif not database:
-        # No flag provided - only prompt if feature is enabled
-        if FEATURE_FLAGS.get("database_init", False):
-            include_db = inquirer.confirm(
-                message="Would you like to set up a database?",
-                default=False
-            ).execute()
+        # No flag provided - prompt user
+        include_db = inquirer.confirm(
+            message="Would you like to set up a database?",
+            default=False
+        ).execute()
 
-            if include_db:
-                db_type = inquirer.select(
-                    message="Which database would you like to use?",
-                    choices=[
-                        {'name': 'PostgreSQL', 'value': 'postgresql'},
-                        {'name': 'MySQL', 'value': 'mysql'},
-                        {'name': 'SQLite (Local file)', 'value': 'sqlite'},
-                        {'name': 'MongoDB (NoSQL)', 'value': 'mongodb'}
-                    ],
-                    default='postgresql'
-                ).execute()
+        if include_db:
+            db_type = inquirer.select(
+                message="Which database would you like to use?",
+                choices=[
+                    {'name': 'PostgreSQL', 'value': 'postgresql'},
+                    {'name': 'MySQL', 'value': 'mysql'},
+                    {'name': 'SQLite (Local file)', 'value': 'sqlite'},
+                    {'name': 'MongoDB (NoSQL)', 'value': 'mongodb'}
+                ],
+                default='postgresql'
+            ).execute()
 
     # Review section - show configuration
     click.secho("\n" + "="*50, fg='yellow', bold=True)
