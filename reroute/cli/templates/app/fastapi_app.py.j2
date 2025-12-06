@@ -34,7 +34,7 @@ def root():
     """Root endpoint"""
     return {
         "message": "Welcome to {{ project_name }}",
-        "docs": "/docs",
+        "docs": AppConfig.OpenAPI.DOCS_PATH,
         "framework": "REROUTE + FastAPI"
     }
 

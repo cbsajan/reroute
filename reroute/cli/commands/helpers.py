@@ -32,15 +32,15 @@ def create_route_directory(path: str) -> Path:
     return route_dir
 
 
-def to_class_name(name: str) -> str:
+def to_pascal_case(name: str) -> str:
     """
-    Convert name to PascalCase class name.
+    Convert name to PascalCase (without any suffix).
 
     Examples:
-        users -> UsersRoutes
-        user -> UserRoutes
-        blog_posts -> BlogPostsRoutes
-        UserProfile -> UserProfileRoutes (preserves existing PascalCase)
+        users -> Users
+        user -> User
+        blog_posts -> BlogPosts
+        UserProfile -> UserProfile (preserves existing PascalCase)
     """
     import re
 
@@ -73,13 +73,28 @@ def to_class_name(name: str) -> str:
     if not class_name or not class_name[0].isalpha():
         raise ValueError(f"'{name}' cannot be converted to a valid class name (class names must start with a letter)")
 
-    # Add 'Routes' suffix if not present
-    if not class_name.endswith('Routes'):
-        class_name += 'Routes'
-
     # Validate it's a valid Python identifier
     if not class_name.isidentifier():
         raise ValueError(f"'{class_name}' is not a valid Python class name")
+
+    return class_name
+
+
+def to_class_name(name: str) -> str:
+    """
+    Convert name to PascalCase class name with 'Routes' suffix.
+
+    Examples:
+        users -> UsersRoutes
+        user -> UserRoutes
+        blog_posts -> BlogPostsRoutes
+        UserProfile -> UserProfileRoutes (preserves existing PascalCase)
+    """
+    class_name = to_pascal_case(name)
+
+    # Add 'Routes' suffix if not present
+    if not class_name.endswith('Routes'):
+        class_name += 'Routes'
 
     return class_name
 

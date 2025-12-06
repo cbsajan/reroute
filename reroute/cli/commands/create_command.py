@@ -11,7 +11,7 @@ import re
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from .helpers import is_reroute_project, create_route_directory, to_class_name, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
+from .helpers import is_reroute_project, create_route_directory, to_class_name, to_pascal_case, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -47,7 +47,9 @@ def generate():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def generate_route(path, name, methods, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+def generate_route(path, name, methods, http_test, dry_run):
     """
     Generate a new route file.
 
@@ -121,8 +123,9 @@ def generate_route(path, name, methods, http_test):
 
         # Calculate route directory path (without creating it yet)
         routes_dir = Path.cwd() / "app" / "routes"
-        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
-        route_dir = routes_dir / route_path_clean
+        route_path_clean = path.strip('/')
+        # Convert URL path segments to proper file system path
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
         route_file = route_dir / "page.py"
 
         # Check for duplicate class name
@@ -185,6 +188,22 @@ def generate_route(path, name, methods, http_test):
             methods=methods_list
         )
 
+        # Dry-run mode: show preview without creating files
+        if dry_run:
+            click.secho("\n[DRY-RUN] Preview of changes (no files will be created):", fg='yellow', bold=True)
+            click.secho("=" * 50, fg='yellow')
+            click.secho(f"\nWould create: {route_file}", fg='cyan')
+            click.secho(f"  Path: {path}", fg='magenta')
+            click.secho(f"  Class: {class_name}", fg='green')
+            click.secho(f"  Methods: {', '.join(methods_list)}", fg='yellow')
+            if http_test:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
+            click.echo()
+            return
+
         # NOW create the directory (after all validations and inputs are complete)
         route_dir.mkdir(parents=True, exist_ok=True)
 
@@ -228,7 +247,11 @@ def generate_route(path, name, methods, http_test):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def generate_crud(path, name, operations, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+@click.option('--auto-migrate', is_flag=True, default=False,
+              help='Automatically create and apply database migration')
+def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
     """
     Generate a full CRUD route.
 
@@ -302,8 +325,9 @@ def generate_crud(path, name, operations, http_test):
 
         # Calculate route directory path (without creating it yet)
         routes_dir = Path.cwd() / "app" / "routes"
-        route_path_clean = path.strip('/').replace('/', Path('/').as_posix())
-        route_dir = routes_dir / route_path_clean
+        route_path_clean = path.strip('/')
+        # Convert URL path segments to proper file system path
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
         route_file = route_dir / "page.py"
 
         # Check for duplicate class name
@@ -343,6 +367,26 @@ def generate_crud(path, name, operations, http_test):
             operations=operations_list
         )
 
+        # Dry-run mode: show preview without creating files
+        if dry_run:
+            click.secho("\n[DRY-RUN] Preview of changes (no files will be created):", fg='yellow', bold=True)
+            click.secho("=" * 50, fg='yellow')
+            click.secho(f"\nWould create: {route_file}", fg='cyan')
+            click.secho(f"  Path: {path}", fg='magenta')
+            click.secho(f"  Class: {class_name}", fg='green')
+            click.secho(f"  Operations: {', '.join(operations_list)}", fg='yellow')
+            if http_test:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            if auto_migrate:
+                click.secho(f"\nWould run:", fg='blue')
+                click.secho(f"  1. reroute db migrate -m 'Add {name} CRUD'", fg='white')
+                click.secho(f"  2. reroute db upgrade", fg='white')
+            click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
+            click.echo()
+            return
+
         # NOW create the directory (after all validations and inputs are complete)
         route_dir.mkdir(parents=True, exist_ok=True)
 
@@ -363,6 +407,11 @@ def generate_crud(path, name, operations, http_test):
             http_file = _generate_http_test_file(path, name, 'crud')
             click.secho(f"[OK] HTTP test created: ", fg='green', bold=True, nl=False)
             click.secho(f"{http_file}", fg='cyan')
+
+        # Auto-migrate: create and apply database migration
+        if auto_migrate:
+            click.echo()
+            _run_auto_migrate(name)
 
         click.echo()
 
@@ -499,7 +548,9 @@ def create():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def create_route(path, name, methods, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+def create_route(path, name, methods, http_test, dry_run):
     """
     Create a new route file.
 
@@ -509,11 +560,12 @@ def create_route(path, name, methods, http_test):
     Examples:
         reroute create route
         reroute create route --path /users --name Users
+        reroute create route --path /posts --dry-run
     """
     # Call the same logic as generate_route
     from click import Context
     ctx = Context(generate_route)
-    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test)
+    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test, dry_run=dry_run)
 
 
 @create.command(name='crud')
@@ -527,7 +579,11 @@ def create_route(path, name, methods, http_test):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
-def create_crud(path, name, operations, http_test):
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+@click.option('--auto-migrate', is_flag=True, default=False,
+              help='Automatically create and apply database migration')
+def create_crud(path, name, operations, http_test, dry_run, auto_migrate):
     """
     Create a full CRUD route.
 
@@ -537,11 +593,141 @@ def create_crud(path, name, operations, http_test):
     Examples:
         reroute create crud
         reroute create crud --path /users --name User
+        reroute create crud --path /posts --dry-run
+        reroute create crud --path /products --auto-migrate
     """
     # Call the same logic as generate_crud
     from click import Context
     ctx = Context(generate_crud)
-    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test)
+    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test, dry_run=dry_run, auto_migrate=auto_migrate)
+
+
+@create.command(name='dbmodel', hidden=True)
+@click.option('--name', default=None,
+              help='Name of the database model (singular, e.g., User)')
+def create_dbmodel(name):
+    """
+    [PREVIEW] Create a SQLAlchemy database model.
+
+    This feature is coming in v0.2.0. Currently in preview mode.
+    Creates a database model that inherits from reroute.db.models.Model.
+
+    Examples:
+        reroute create dbmodel --name User
+        reroute create dbmodel --name Product
+    """
+    from reroute import FEATURE_FLAGS
+
+    # Check feature flag
+    if not FEATURE_FLAGS.get("dbmodel_command", False):
+        click.secho("\n" + "="*50, fg='yellow', bold=True)
+        click.secho("[PREVIEW] DBModel Command", fg='yellow', bold=True)
+        click.secho("="*50, fg='yellow')
+        click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
+        click.secho("\nWhat it will do:", fg='white')
+        click.secho("  - Generate SQLAlchemy models with common fields", fg='white')
+        click.secho("  - Inherit from reroute.db.models.Model base class", fg='white')
+        click.secho("  - Include id, created_at, updated_at automatically", fg='white')
+        click.secho("  - Support relationships and custom fields", fg='white')
+        click.secho("\nPlanned usage:", fg='white')
+        click.secho("  reroute create dbmodel --name User", fg='green')
+        click.secho("  reroute create dbmodel --name Product", fg='green')
+        click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
+        click.echo()
+        return
+
+    # Feature implementation (for v0.2.0)
+    click.secho("\n" + "="*50, fg='cyan', bold=True)
+    click.secho("Generating Database Model", fg='cyan', bold=True)
+    click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    try:
+        # Validate we're in a REROUTE project
+        if not is_reroute_project():
+            click.secho("[ERROR] Not in a REROUTE project directory!", fg='red', bold=True)
+            click.secho("Run 'reroute init' first to create a project.", fg='yellow')
+            sys.exit(1)
+
+        # Prompt for name if not provided
+        if name is None:
+            def validate_model_name(text):
+                """Real-time validation for model name"""
+                if not text or not text.strip():
+                    return False
+                text = text.strip()
+                text_no_underscore = text.lstrip('_')
+                if not text_no_underscore:
+                    return False
+                if not text_no_underscore[0].isalpha():
+                    return False
+                if not re.match(r'^[a-zA-Z0-9_]+$', text):
+                    return False
+                return True
+
+            name = inquirer.text(
+                message="Model name (e.g., User or Product):",
+                validate=validate_model_name,
+                invalid_message="Model name must start with a letter and contain only letters, numbers, underscores."
+            ).execute()
+
+        # Create db_models directory if it doesn't exist
+        db_models_dir = Path.cwd() / "app" / "db_models"
+        db_models_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create __init__.py in db_models directory if it doesn't exist
+        init_file = db_models_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text('"""Database Models package"""\n')
+
+        # Generate model file
+        class_name = to_pascal_case(name)
+        table_name = name.lower() + "s"  # Simple pluralization
+        model_filename = name.lower() + ".py"
+        model_file = db_models_dir / model_filename
+
+        # Check if file already exists
+        if model_file.exists():
+            click.secho(f"[ERROR] Model file already exists: {model_file}", fg='red', bold=True)
+            click.secho("Delete the existing file or choose a different name.", fg='yellow')
+            sys.exit(1)
+
+        # Render template
+        template = jinja_env.get_template('models/db_model.py.j2')
+        content = template.render(
+            model_name=class_name,
+            table_name=table_name,
+            description=f"{class_name} database model",
+            fields=[
+                {"name": "name", "type": "String(100)", "nullable": False, "unique": False, "index": False},
+                {"name": "email", "type": "String(255)", "nullable": True, "unique": True, "index": True},
+            ]
+        )
+
+        # Write model file
+        model_file.write_text(content)
+
+        click.secho(f"[OK] Database model created: ", fg='green', bold=True, nl=False)
+        click.secho(f"{model_file}", fg='cyan')
+        click.secho(f"     Model: ", fg='blue', nl=False)
+        click.secho(f"{class_name}", fg='green', bold=True)
+        click.secho(f"     Table: ", fg='blue', nl=False)
+        click.secho(f"{table_name}", fg='yellow')
+        click.secho(f"     Inherits: ", fg='blue', nl=False)
+        click.secho("reroute.db.models.Model", fg='magenta')
+
+        click.secho(f"\n[TIP] Import with: ", fg='blue', nl=False)
+        click.secho(f"from app.db_models.{name.lower()} import {class_name}", fg='cyan')
+
+        click.secho(f"\n[NOTE] Customize fields in the generated file.", fg='yellow')
+        click.secho("       Common types: String, Integer, Boolean, Text, DateTime, JSON", fg='white')
+
+        click.echo()
+
+    except Exception as e:
+        click.secho(f"\n[ERROR] Failed to generate database model: {e}", fg='red', bold=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 @create.command(name='model')
@@ -562,6 +748,186 @@ def create_model(name):
     from click import Context
     ctx = Context(generate_model)
     ctx.invoke(generate_model, name=name)
+
+
+@create.command(name='auth', hidden=True)
+@click.option('--method', '-m', default='jwt',
+              type=click.Choice(['jwt'], case_sensitive=False),
+              help='Authentication method (jwt)')
+def create_auth(method):
+    """
+    [PREVIEW] Create authentication scaffolding.
+
+    This feature is coming in v0.2.0. Currently in preview mode.
+    Generates JWT authentication with login, register, refresh, and profile routes.
+
+    Examples:
+        reroute create auth --method jwt
+        reroute create auth -m jwt
+    """
+    import secrets
+    from reroute import FEATURE_FLAGS
+
+    # Check feature flag
+    if not FEATURE_FLAGS.get("auth_scaffolding", False):
+        click.secho("\n" + "="*50, fg='yellow', bold=True)
+        click.secho("[PREVIEW] Auth Scaffolding", fg='yellow', bold=True)
+        click.secho("="*50, fg='yellow')
+        click.secho("\nThis feature is coming in v0.2.0!", fg='cyan', bold=True)
+        click.secho("\nWhat it will generate:", fg='white')
+        click.secho("  - app/auth/ module (jwt.py, password.py)", fg='white')
+        click.secho("  - app/models/auth.py (Pydantic schemas)", fg='white')
+        click.secho("  - app/routes/auth/ routes:", fg='white')
+        click.secho("    - POST /auth/login", fg='green')
+        click.secho("    - POST /auth/register", fg='green')
+        click.secho("    - POST /auth/refresh", fg='green')
+        click.secho("    - GET /auth/me (protected)", fg='green')
+        click.secho("  - JWT config in config.py", fg='white')
+        click.secho("\nPlanned usage:", fg='white')
+        click.secho("  reroute create auth --method jwt", fg='green')
+        click.secho("\nStay tuned for the v0.2.0 release!", fg='magenta', bold=True)
+        click.echo()
+        return
+
+    # Feature implementation (for v0.2.0)
+    click.secho("\n" + "="*50, fg='cyan', bold=True)
+    click.secho("Generating Auth Scaffolding", fg='cyan', bold=True)
+    click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    try:
+        # Validate we're in a REROUTE project
+        if not is_reroute_project():
+            click.secho("[ERROR] Not in a REROUTE project directory!", fg='red', bold=True)
+            click.secho("Run 'reroute init' first to create a project.", fg='yellow')
+            sys.exit(1)
+
+        # Generate secure JWT secret
+        jwt_secret = secrets.token_hex(32)
+
+        # Create directories
+        auth_dir = Path.cwd() / "app" / "auth"
+        models_dir = Path.cwd() / "app" / "models"
+        routes_auth_dir = Path.cwd() / "app" / "routes" / "auth"
+
+        auth_dir.mkdir(parents=True, exist_ok=True)
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        click.secho("  Creating auth module...", fg='blue')
+
+        # Generate auth/__init__.py
+        init_template = jinja_env.get_template('auth/__init__.py.j2')
+        (auth_dir / "__init__.py").write_text(init_template.render())
+        click.secho("  [ OK ] app/auth/__init__.py", fg='green')
+
+        # Generate auth/jwt.py
+        jwt_template = jinja_env.get_template('auth/jwt.py.j2')
+        (auth_dir / "jwt.py").write_text(jwt_template.render())
+        click.secho("  [ OK ] app/auth/jwt.py", fg='green')
+
+        # Generate auth/password.py
+        password_template = jinja_env.get_template('auth/password.py.j2')
+        (auth_dir / "password.py").write_text(password_template.render())
+        click.secho("  [ OK ] app/auth/password.py", fg='green')
+
+        click.secho("\n  Creating auth models...", fg='blue')
+
+        # Create models __init__.py if not exists
+        models_init = models_dir / "__init__.py"
+        if not models_init.exists():
+            models_init.write_text('"""Models package"""\n')
+
+        # Generate models/auth.py
+        models_template = jinja_env.get_template('auth/models.py.j2')
+        (models_dir / "auth.py").write_text(models_template.render())
+        click.secho("  [ OK ] app/models/auth.py", fg='green')
+
+        click.secho("\n  Creating auth routes...", fg='blue')
+
+        # Create route directories and files
+        route_configs = [
+            ("login", "login.py.j2", "POST /auth/login"),
+            ("register", "register.py.j2", "POST /auth/register"),
+            ("refresh", "refresh.py.j2", "POST /auth/refresh"),
+            ("me", "me.py.j2", "GET /auth/me"),
+        ]
+
+        for route_name, template_name, endpoint in route_configs:
+            route_dir = routes_auth_dir / route_name
+            route_dir.mkdir(parents=True, exist_ok=True)
+
+            template = jinja_env.get_template(f'routes/auth/{template_name}')
+            (route_dir / "page.py").write_text(template.render())
+            click.secho(f"  [ OK ] {endpoint}", fg='green')
+
+        # Update config.py with JWT settings
+        click.secho("\n  Updating configuration...", fg='blue')
+
+        config_file = Path.cwd() / "config.py"
+        if config_file.exists():
+            config_content = config_file.read_text()
+
+            # Check if JWT config already exists
+            if "class JWT:" not in config_content:
+                # Find the position to insert (after OpenAPI class or before the last class method)
+                jwt_config = jinja_env.get_template('auth/config_jwt.py.j2').render(jwt_secret=jwt_secret)
+
+                # Insert after OpenAPI class or at the end of AppConfig
+                if "class OpenAPI:" in config_content:
+                    # Find end of OpenAPI class and insert after
+                    lines = config_content.split('\n')
+                    insert_idx = None
+                    in_openapi = False
+                    indent_level = 0
+
+                    for i, line in enumerate(lines):
+                        if "class OpenAPI:" in line:
+                            in_openapi = True
+                            indent_level = len(line) - len(line.lstrip())
+                        elif in_openapi and line.strip() and not line.startswith(' ' * (indent_level + 4)):
+                            if line.strip() and not line.strip().startswith('#'):
+                                insert_idx = i
+                                break
+
+                    if insert_idx:
+                        lines.insert(insert_idx, "\n" + jwt_config)
+                        config_content = '\n'.join(lines)
+                        config_file.write_text(config_content)
+                        click.secho("  [ OK ] Added JWT config to config.py", fg='green')
+                    else:
+                        click.secho("  [WARN] Could not auto-insert JWT config. Add manually.", fg='yellow')
+                else:
+                    click.secho("  [WARN] Add JWT config to config.py manually.", fg='yellow')
+            else:
+                click.secho("  [INFO] JWT config already exists in config.py", fg='cyan')
+
+        # Success message
+        click.secho("\n" + "="*50, fg='green', bold=True)
+        click.secho("[SUCCESS] Auth scaffolding created!", fg='green', bold=True)
+        click.secho("="*50, fg='green')
+
+        click.secho("\nGenerated files:", fg='white')
+        click.secho("  - app/auth/__init__.py", fg='cyan')
+        click.secho("  - app/auth/jwt.py", fg='cyan')
+        click.secho("  - app/auth/password.py", fg='cyan')
+        click.secho("  - app/models/auth.py", fg='cyan')
+        click.secho("  - app/routes/auth/login/page.py", fg='cyan')
+        click.secho("  - app/routes/auth/register/page.py", fg='cyan')
+        click.secho("  - app/routes/auth/refresh/page.py", fg='cyan')
+        click.secho("  - app/routes/auth/me/page.py", fg='cyan')
+
+        click.secho("\nNext steps:", fg='yellow', bold=True)
+        click.secho("  1. Install dependencies: pip install pyjwt bcrypt", fg='white')
+        click.secho("  2. Update JWT.SECRET in config.py for production", fg='white')
+        click.secho("  3. Implement database storage in route handlers", fg='white')
+        click.secho("  4. Look for TODO(human) comments for customization", fg='white')
+
+        click.echo()
+
+    except Exception as e:
+        click.secho(f"\n[ERROR] Failed to generate auth scaffolding: {e}", fg='red', bold=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 # Helper functions
@@ -627,3 +993,77 @@ def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
     http_file.write_text(content)
 
     return http_file
+
+
+def _run_auto_migrate(resource_name: str) -> bool:
+    """
+    Automatically create and apply database migration.
+
+    Args:
+        resource_name: Name of the resource (for migration message)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import subprocess
+
+    click.secho("[AUTO-MIGRATE] Running database migrations...", fg='blue', bold=True)
+
+    # Check if migrations directory exists
+    migrations_dir = Path.cwd() / "migrations"
+    if not migrations_dir.exists():
+        click.secho("  [WARN] Migrations not initialized.", fg='yellow')
+        click.secho("  [TIP] Run 'reroute db init' first, then 'reroute db migrate'", fg='blue')
+        return False
+
+    # Check if alembic is installed
+    try:
+        import alembic  # noqa: F401
+    except ImportError:
+        click.secho("  [WARN] Alembic not installed.", fg='yellow')
+        click.secho("  [TIP] Install with: pip install alembic", fg='blue')
+        return False
+
+    try:
+        # Step 1: Create migration
+        click.secho(f"  Creating migration for {resource_name}...", fg='white')
+        migrate_result = subprocess.run(
+            ['alembic', 'revision', '--autogenerate', '-m', f'Add {resource_name} CRUD'],
+            capture_output=True,
+            text=True,
+            cwd=str(Path.cwd())
+        )
+
+        if migrate_result.returncode != 0:
+            click.secho(f"  [ERROR] Failed to create migration", fg='red')
+            if migrate_result.stderr:
+                click.secho(f"  {migrate_result.stderr.strip()}", fg='red')
+            return False
+
+        click.secho("  [OK] Migration created", fg='green')
+
+        # Step 2: Apply migration
+        click.secho("  Applying migration...", fg='white')
+        upgrade_result = subprocess.run(
+            ['alembic', 'upgrade', 'head'],
+            capture_output=True,
+            text=True,
+            cwd=str(Path.cwd())
+        )
+
+        if upgrade_result.returncode != 0:
+            click.secho(f"  [ERROR] Failed to apply migration", fg='red')
+            if upgrade_result.stderr:
+                click.secho(f"  {upgrade_result.stderr.strip()}", fg='red')
+            return False
+
+        click.secho("  [OK] Migration applied", fg='green')
+        return True
+
+    except FileNotFoundError:
+        click.secho("  [ERROR] 'alembic' command not found in PATH", fg='red')
+        click.secho("  [TIP] Ensure alembic is installed: pip install alembic", fg='blue')
+        return False
+    except Exception as e:
+        click.secho(f"  [ERROR] Migration failed: {e}", fg='red')
+        return False

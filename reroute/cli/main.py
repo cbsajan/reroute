@@ -5,6 +5,7 @@ Interactive CLI for REROUTE project scaffolding and code generation.
 """
 
 import click
+import sys
 from pathlib import Path
 
 from typing import TYPE_CHECKING
@@ -16,6 +17,7 @@ from reroute.cli.commands.init_command import init
 from reroute.cli.commands.create_command import generate, create
 from reroute.cli.commands.helpers import is_reroute_project
 from reroute.cli.update_checker import check_for_updates
+from reroute.cli.utils import CLIError, handle_error
 
 
 def _version_callback(ctx, param, value):
@@ -129,5 +131,17 @@ cli.add_command(create) # type: ignore
 #     print()
 
 
+def main():
+    """Main entry point with global exception handling."""
+    try:
+        cli()
+    except CLIError as e:
+        handle_error(e)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        click.echo("\n\n[CANCELLED] Operation cancelled by user.")
+        sys.exit(130)
+
+
 if __name__ == '__main__':
-    cli()
+    main()

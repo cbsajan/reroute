@@ -30,7 +30,7 @@ def root():
     """Welcome endpoint showing API information"""
     return {
         "message": "Welcome to {{ project_name }}",
-        "docs": "/apidoc/swagger/",
+        "docs": AppConfig.OpenAPI.DOCS_PATH,
         "framework": "REROUTE + Flask"
     }
 
