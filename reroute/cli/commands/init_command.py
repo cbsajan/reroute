@@ -26,6 +26,9 @@ jinja_env = Environment(
 @click.argument('name', required=False)
 @click.option('--framework', default=None,
               help='Backend framework (fastapi or flask)')
+@click.option('--package-manager', default='uv',
+              type=click.Choice(['uv', 'pip']),
+              help='Package manager (default: uv)')
 @click.option('--config',
               type=click.Choice(['dev', 'prod'], case_sensitive=False),
               default='dev',
@@ -36,7 +39,7 @@ jinja_env = Environment(
 @click.option('--database', '-db', default=None,
               type=click.Choice(['postgresql', 'mysql', 'sqlite', 'mongodb', 'none'], case_sensitive=False),
               help='Database type (postgresql, mysql, sqlite, mongodb, or none)')
-def init(name, framework, config, host, port, description, database):
+def init(name, framework, package_manager, config, host, port, description, database):
     """
     Initialize a new REROUTE project.
 
@@ -72,6 +75,9 @@ def init(name, framework, config, host, port, description, database):
         if validation_result is not True:
             click.secho(f"\n[ERROR] {validation_result}", fg='red', bold=True)
             sys.exit(1)
+
+    # Convert project name to lowercase for consistency
+    name = name.lower()
 
     project_dir = Path.cwd() / name
 
@@ -173,12 +179,15 @@ def init(name, framework, config, host, port, description, database):
         with progress_step("Creating example route"):
             _generate_example_route(project_dir)
 
+        with progress_step("Creating root and health routes"):
+            _generate_root_route(project_dir, framework, name)
+
         if include_tests:
             with progress_step("Creating test cases"):
                 _generate_tests(project_dir, framework)
 
         with progress_step("Creating .env.example"):
-            _generate_env_file(project_dir, name, db_type)
+            _generate_env_file(project_dir, name, db_type, package_manager)
 
         if db_type:
             with progress_step("Creating database configuration"):
@@ -188,7 +197,7 @@ def init(name, framework, config, host, port, description, database):
             _create_requirements(project_dir, framework, include_tests, db_type)
 
         with progress_step("Creating pyproject.toml"):
-            _create_pyproject(project_dir, name, framework, include_tests, db_type)
+            _create_pyproject(project_dir, name, framework, include_tests, db_type, package_manager)
 
         # Success message
         success_message("Project created successfully!", {
@@ -211,11 +220,20 @@ def init(name, framework, config, host, port, description, database):
             click.secho("")
 
         # Show next steps using utility
-        steps = [
-            f"cd {name}",
-            "pip install -r requirements.txt  # or: uv pip install -e .",
-            "python main.py",
-        ]
+        if package_manager == 'uv':
+            steps = [
+                f"cd {name}",
+                "uv venv",
+                "uv sync",
+                "uv run main.py",
+            ]
+        else:
+            steps = [
+                f"cd {name}",
+                "python -m venv venv",
+                "pip install -r requirements.txt",
+                "python main.py",
+            ]
         next_steps(steps)
 
         click.secho("Happy Coding!", fg='yellow', bold=True)
@@ -311,6 +329,23 @@ def _generate_example_route(project_dir: Path):
     (example_dir / "page.py").write_text(content)
 
 
+def _generate_root_route(project_dir: Path, framework: str, name: str):
+    """Generate the root and health routes in app folder (combined in one file)."""
+    # Generate combined root and health routes
+    template = jinja_env.get_template('app/root.py.j2')
+    content = template.render(
+        framework=framework,
+        project_name=name
+    )
+
+    # Create the route file in app/
+    app_dir = project_dir / "app"
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    route_file = app_dir / "root.py"
+    route_file.write_text(content)
+
+
 def _generate_tests(project_dir: Path, framework: str):
     """Generate test cases using Jinja2 template."""
     if framework == 'fastapi':
@@ -355,20 +390,21 @@ def _create_requirements(project_dir: Path, framework: str, include_tests: bool 
     requirements_file.write_text(content)
 
 
-def _create_pyproject(project_dir: Path, project_name: str, framework: str, include_tests: bool = False, db_type: str = None):
+def _create_pyproject(project_dir: Path, project_name: str, framework: str, include_tests: bool = False, db_type: str = None, package_manager: str = 'uv'):
     """Create pyproject.toml using template (modern Python standard, uv-compatible)."""
     template = jinja_env.get_template('project/pyproject.toml.j2')
     content = template.render(
         project_name=project_name,
         framework=framework,
         db_type=db_type,
-        include_tests=include_tests
+        include_tests=include_tests,
+        package_manager=package_manager
     )
     pyproject_file = project_dir / "pyproject.toml"
     pyproject_file.write_text(content)
 
 
-def _generate_env_file(project_dir: Path, name: str, db_type: str = None):
+def _generate_env_file(project_dir: Path, name: str, db_type: str = None, package_manager: str = 'uv'):
     """Generate .env.example file."""
     template = jinja_env.get_template('project/env.example.j2')
 
@@ -384,10 +420,15 @@ def _generate_env_file(project_dir: Path, name: str, db_type: str = None):
         }
         db_url = default_urls.get(db_type, '')
 
+    # Determine install command based on package manager
+    install_cmd = 'uv sync' if package_manager == 'uv' else 'pip install -e .'
+
     content = template.render(
         project_name=name,
         db_type=db_type,
-        db_url=db_url
+        db_url=db_url,
+        package_manager=package_manager,
+        install_cmd=install_cmd
     )
     env_file = project_dir / ".env.example"
     env_file.write_text(content)

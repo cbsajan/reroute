@@ -147,5 +147,94 @@ def test_load_env_from_file():
         Path(env_file).unlink(missing_ok=True)
 
 
+def test_ultimate_flexible_config_auto_any_variable():
+    """Test that ANY REROUTE_* variable works automatically without whitelist"""
+    # Test existing variables
+    os.environ['REROUTE_SECRET_KEY'] = 'test-secret-key-123'
+    os.environ['REROUTE_DATABASE_URL'] = 'sqlite:///test.db'
+
+    # Test completely new variables (these should work automatically)
+    os.environ['REROUTE_NEW_FEATURE'] = 'true'
+    os.environ['REROUTE_API_VERSION'] = 'v2.1'
+    os.environ['REROUTE_MAX_CONNECTIONS'] = '100'
+    os.environ['REROUTE_ENABLED_SERVICES'] = 'auth,api,worker'
+
+    class TestConfig(Config):
+        pass
+
+    # Load from environment
+    TestConfig.load_from_env()
+
+    # Test existing variables
+    assert TestConfig.SECRET_KEY == 'test-secret-key-123'
+    assert TestConfig.DATABASE_URL == 'sqlite:///test.db'
+
+    # Test new variables - these should be created automatically
+    assert hasattr(TestConfig, 'NEW_FEATURE')
+    assert TestConfig.NEW_FEATURE is True  # Boolean auto-detected
+
+    assert hasattr(TestConfig, 'API_VERSION')
+    assert TestConfig.API_VERSION == 'v2.1'  # String auto-detected
+
+    assert hasattr(TestConfig, 'MAX_CONNECTIONS')
+    assert TestConfig.MAX_CONNECTIONS == 100  # Integer auto-detected
+
+    assert hasattr(TestConfig, 'ENABLED_SERVICES')
+    assert isinstance(TestConfig.ENABLED_SERVICES, list)
+    assert TestConfig.ENABLED_SERVICES == ['auth', 'api', 'worker']  # List auto-detected
+
+    # Cleanup
+    del os.environ['REROUTE_SECRET_KEY']
+    del os.environ['REROUTE_DATABASE_URL']
+    del os.environ['REROUTE_NEW_FEATURE']
+    del os.environ['REROUTE_API_VERSION']
+    del os.environ['REROUTE_MAX_CONNECTIONS']
+    del os.environ['REROUTE_ENABLED_SERVICES']
+
+
+def test_ultimate_flexible_config_empty_values():
+    """Test handling of empty values"""
+    os.environ['REROUTE_SECRET_KEY'] = 'null'
+    os.environ['REROUTE_DATABASE_URL'] = '~'
+    os.environ['REROUTE_EMPTY_SETTING'] = ''
+
+    class TestConfig(Config):
+        pass
+
+    TestConfig.load_from_env()
+
+    # Empty/null values should be set to None
+    assert TestConfig.SECRET_KEY is None
+    assert TestConfig.DATABASE_URL is None
+    assert hasattr(TestConfig, 'EMPTY_SETTING')
+    assert TestConfig.EMPTY_SETTING is None
+
+    # Cleanup
+    del os.environ['REROUTE_SECRET_KEY']
+    del os.environ['REROUTE_DATABASE_URL']
+    del os.environ['REROUTE_EMPTY_SETTING']
+
+
+def test_ultimate_flexible_config_cors_origins_compatibility():
+    """Test backward compatibility for CORS_ORIGINS -> CORS_ALLOW_ORIGINS"""
+    os.environ['REROUTE_CORS_ORIGINS'] = 'https://example.com,https://api.example.com'
+
+    class TestConfig(Config):
+        pass
+
+    TestConfig.load_from_env()
+
+    # Should map to CORS_ALLOW_ORIGINS
+    assert hasattr(TestConfig, 'CORS_ALLOW_ORIGINS')
+    assert isinstance(TestConfig.CORS_ALLOW_ORIGINS, list)
+    assert TestConfig.CORS_ALLOW_ORIGINS == ['https://example.com', 'https://api.example.com']
+
+    # CORS_ORIGINS attribute itself should not be created
+    assert not hasattr(TestConfig, 'CORS_ORIGINS')
+
+    # Cleanup
+    del os.environ['REROUTE_CORS_ORIGINS']
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -99,6 +99,12 @@ class Config:
     HOST = "0.0.0.0"
     PORT = 7376
 
+    # Security Configuration
+    SECRET_KEY = "your-secret-key-change-in-production"  # Secret key for security operations
+
+    # Database Configuration
+    DATABASE_URL = None  # Database connection URL (optional)
+
     # CORS Configuration (applied globally to all routes)
     # SECURITY: Default to restrictive origins for production safety
     ENABLE_CORS = True
@@ -191,80 +197,106 @@ class Config:
             """Parse comma-separated list from string"""
             return [item.strip() for item in str(value).split(',') if item.strip()]
 
-        # Whitelist of allowed config keys (security: prevent arbitrary attribute setting)
-        ALLOWED_CONFIG_KEYS = {
-            # API Configuration
-            'API_BASE_PATH',
-
-            # Framework Behavior
-            'DEBUG', 'VERBOSE_LOGGING', 'LOG_LEVEL', 'AUTO_RELOAD',
-
-            # Server Configuration
-            'HOST', 'PORT',
-
-            # CORS Configuration
-            'ENABLE_CORS', 'CORS_ALLOW_ORIGINS', 'CORS_ALLOW_METHODS',
-            'CORS_ALLOW_HEADERS', 'CORS_ALLOW_CREDENTIALS',
-
-            # Health Check Configuration
-            'HEALTH_CHECK_ENABLED', 'HEALTH_CHECK_PATH'
-        }
-
         # Valid log levels for validation
         VALID_LOG_LEVELS = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
 
-        # Auto-map REROUTE_* environment variables to Config attributes
+        def auto_detect_and_set(attr_name: str, env_value: str):
+            """Auto-detect type and set Config attribute dynamically"""
+
+            # Handle explicit empty values (null, none, empty)
+            if env_value.lower() in ('null', 'none', '~', ''):
+                return None
+
+            # Boolean detection
+            if env_value.lower() in ('true', 'false', '1', '0', 'yes', 'no', 'on', 'off'):
+                return env_value.lower() in ('true', '1', 'yes', 'on')
+
+            # Integer detection (handle negative numbers too)
+            if env_value.lstrip('-').isdigit():
+                try:
+                    return int(env_value)
+                except ValueError:
+                    pass  # Fall through to string handling
+
+            # List detection (comma-separated values)
+            if ',' in env_value:
+                return [item.strip() for item in env_value.split(',') if item.strip()]
+
+            # Float detection (numbers with decimals)
+            try:
+                if '.' in env_value and env_value.replace('.', '').lstrip('-').isdigit():
+                    return float(env_value)
+            except ValueError:
+                pass  # Fall through to string handling
+
+            # Default to string
+            return env_value
+
+        # Auto-map ANY REROUTE_* environment variable to Config attributes
         for env_key, env_value in os.environ.items():
-            # Only process REROUTE_* prefixed variables
+            # Only process REROUTE_* prefixed variables (security boundary)
             if not env_key.startswith('REROUTE_'):
                 continue
 
             # Remove REROUTE_ prefix to get attribute name
             attr_name = env_key.replace('REROUTE_', '', 1)
 
-            # Security: Check against whitelist first
-            if attr_name not in ALLOWED_CONFIG_KEYS:
+            # Skip internal framework settings (security protection)
+            if attr_name.startswith('ROUTES_') or attr_name in ('SUPPORTED_HTTP_METHODS', 'IGNORE_FOLDERS', 'IGNORE_FILES'):
                 logger.warning(
-                    f"Config key not in whitelist: {env_key}. "
-                    f"Only REROUTE_* variables for user-configurable settings are allowed."
+                    f"Cannot override internal framework setting: {env_key}"
                 )
                 continue
 
-            # Check if this attribute exists in Config
-            if not hasattr(cls, attr_name):
-                if cls.VERBOSE_LOGGING:
-                    logger.warning(f"Unknown config variable: {env_key}")
-                continue
+            # Auto-detect type and set value
+            try:
+                parsed_value = auto_detect_and_set(attr_name, env_value)
 
-            # Get current attribute value to determine type
-            current_value = getattr(cls, attr_name)
-
-            # Skip if it's a method or nested class
-            if callable(current_value) or isinstance(current_value, type):
-                continue
-
-            # Type conversion based on current value type
-            if isinstance(current_value, bool):
-                setattr(cls, attr_name, parse_bool(env_value))
-            elif isinstance(current_value, int):
-                setattr(cls, attr_name, parse_int(env_value))
-            elif isinstance(current_value, list):
-                setattr(cls, attr_name, parse_list(env_value))
-            else:
-                # String or other types - validate and set
                 # Special validation for LOG_LEVEL
-                if attr_name == 'LOG_LEVEL':
-                    env_value_upper = env_value.upper()
-                    if env_value_upper not in VALID_LOG_LEVELS:
+                if attr_name == 'LOG_LEVEL' and parsed_value:
+                    if isinstance(parsed_value, str):
+                        parsed_value_upper = parsed_value.upper()
+                        if parsed_value_upper in VALID_LOG_LEVELS:
+                            setattr(cls, attr_name, parsed_value_upper)
+                        else:
+                            logger.warning(
+                                f"Invalid LOG_LEVEL: {env_value}. "
+                                f"Must be one of: {', '.join(sorted(VALID_LOG_LEVELS))}. "
+                                f"Using default value."
+                            )
+                            continue
+                    else:
+                        logger.warning(f"LOG_LEVEL must be a string, got {type(parsed_value)}")
+                        continue
+
+                # Special validation for PORT (must be valid port range)
+                elif attr_name == 'PORT' and isinstance(parsed_value, int):
+                    if not (1 <= parsed_value <= 65535):
                         logger.warning(
-                            f"Invalid LOG_LEVEL: {env_value}. "
-                            f"Must be one of: {', '.join(sorted(VALID_LOG_LEVELS))}. "
-                            f"Using default: {current_value}"
+                            f"Invalid PORT: {parsed_value}. "
+                            f"Must be between 1 and 65535. Using default value."
                         )
                         continue
-                    setattr(cls, attr_name, env_value_upper)
-                else:
-                    setattr(cls, attr_name, env_value)
+
+                # Handle CORS_ORIGINS backward compatibility
+                elif attr_name == 'CORS_ORIGINS':
+                    # Map CORS_ORIGINS to CORS_ALLOW_ORIGINS for compatibility
+                    setattr(cls, 'CORS_ALLOW_ORIGINS', parsed_value)
+                    if cls.VERBOSE_LOGGING:
+                        logger.info(f"Mapped REROUTE_CORS_ORIGINS to CORS_ALLOW_ORIGINS = {parsed_value}")
+                    continue  # Don't set CORS_ORIGINS attribute itself
+
+                # Set the attribute dynamically
+                setattr(cls, attr_name, parsed_value)
+
+                if cls.VERBOSE_LOGGING:
+                    logger.info(f"Auto-set {attr_name} = {parsed_value} (from {env_key})")
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse {env_key}: {e}. "
+                    f"Environment variable will be ignored."
+                )
 
         return cls
 

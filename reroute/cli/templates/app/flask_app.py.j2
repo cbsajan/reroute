@@ -9,6 +9,9 @@ from flask import Flask
 from reroute.adapters import FlaskAdapter
 from config import AppConfig
 
+# Load environment variables (secure explicit loading)
+AppConfig.load_from_env()
+
 
 # Create Flask app
 app = Flask(__name__)
@@ -22,24 +25,6 @@ adapter = FlaskAdapter(
 
 # Register all REROUTE routes
 adapter.register_routes()
-
-
-# Root endpoint
-@adapter.get('/')
-def root():
-    """Welcome endpoint showing API information"""
-    return {
-        "message": "Welcome to {{ project_name }}",
-        "docs": AppConfig.OpenAPI.DOCS_PATH,
-        "framework": "REROUTE + Flask"
-    }
-
-
-# Health check endpoint
-@adapter.get('/health')
-def health():
-    """Check if the API is running"""
-    return {"status": "healthy"}
 
 
 if __name__ == "__main__":
