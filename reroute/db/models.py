@@ -5,11 +5,19 @@ Provides Django-style base model with common fields and CRUD methods.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, DateTime, inspect
+from sqlalchemy import Column, Integer, DateTime, inspect, asc, desc
+from sqlalchemy.exc import InvalidRequestError
+import re
+import logging
 
 Base = declarative_base()
+
+
+class SecurityValidationError(Exception):
+    """Raised when a security validation fails."""
+    pass
 
 
 class Model(Base):
@@ -43,6 +51,214 @@ class Model(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+
+    @classmethod
+    def _get_allowed_columns(cls) -> Set[str]:
+        """
+        Get a set of allowed column names for this model.
+
+        Returns:
+            Set of valid column names that can be used for ordering
+
+        Security Note:
+            This method creates a whitelist of valid column names to prevent
+            SQL injection attacks via malicious order_by parameters.
+        """
+        try:
+            # Get all column attributes from the model
+            mapper = inspect(cls).mapper
+            return {col.key for col in mapper.column_attrs}
+        except Exception as e:
+            # If we can't get columns, return empty set for safety
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to get columns for model {cls.__name__}: {e}")
+            return set()
+
+    @classmethod
+    def _validate_order_by_parameter(cls, order_by: str) -> tuple[str, str]:
+        """
+        Validate and parse order_by parameter safely.
+
+        Args:
+            order_by: Order by parameter (e.g., "name", "created_at desc", "name asc")
+
+        Returns:
+            Tuple of (column_name, direction) where direction is "asc" or "desc"
+
+        Raises:
+            SecurityValidationError: If parameter contains malicious content
+            ValueError: If parameter format is invalid
+
+        Security Note:
+            This method implements defense-in-depth with multiple validation layers:
+            1. Pattern matching to detect SQL injection attempts
+            2. Whitelist validation against actual model columns
+            3. Direction validation (only 'asc' or 'desc' allowed)
+            4. Length limits to prevent buffer overflow attacks
+            5. Comprehensive security logging
+        """
+        if not order_by or not isinstance(order_by, str):
+            raise ValueError("order_by parameter must be a non-empty string")
+
+        # Length limit to prevent buffer overflow
+        if len(order_by) > 100:
+            raise SecurityValidationError("order_by parameter exceeds maximum length")
+
+        # Store original for logging purposes
+        original_order_by = order_by.strip()
+
+        # Normalize the input for validation (but keep original for validation)
+        normalized = original_order_by.lower()
+
+        # Security: Check for common SQL injection patterns
+        dangerous_patterns = [
+            r';', r'--', r'/\*', r'\*/', r'drop\s+', r'delete\s+',
+            r'insert\s+', r'update\s+', r'union\s+', r'select\s+',
+            r'exec\s*\(', r'xp_', r'sp_', r'1\s*=\s*1', r'or\s+1\s*=\s*1',
+            r'and\s+1\s*=\s*1', r'\'\s*or\s*', r'\'\s*and\s*', r'<script',
+            r'javascript:', r'eval\s*\(', r'benchmark\s*\(', r'sleep\s*\(',
+            r'pg_sleep\s*\(', r'waitfor\s+delay', r'convert\s*\(',
+            r'cast\s*\(', r'char\s*\(', r'ascii\s*\(', r'concat\s*\(',
+            r'substring\s*\(', r'len\s*\(', r'length\s*\(', r'load_file',
+            r'into\s+outfile', r'into\s+dumpfile', r'information_schema',
+            r'mysql\.sys', r'pg_catalog', r'sys\.objects', r'sys\.columns',
+            # Additional patterns for string-based injections
+            r'\'\s*=\s*\'', r'or\s*\'\s*=\s*\'', r'and\s*\'\s*=\s*\'',
+            r'or\s*\'x\'\s*=\s*\'x', r'or\s*\'1\'\s*=\s*\'1'
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, normalized, re.IGNORECASE):
+                # Log injection attempt
+                cls._log_security_event(
+                    "SQL_INJECTION_ATTEMPT",
+                    f"Malicious pattern detected in order_by: {pattern}",
+                    {"order_by": original_order_by, "pattern": pattern}
+                )
+                raise SecurityValidationError(f"Invalid characters or SQL injection attempt detected in order_by parameter")
+
+        # First, check if the entire string contains spaces which indicates invalid format
+        # Column names themselves should not contain spaces
+        if ' ' in original_order_by:
+            # If it contains spaces, check if it follows the "column direction" pattern
+            parts = original_order_by.split()
+            if len(parts) == 2 and parts[1].lower() in ('asc', 'desc'):
+                # This is valid: "column asc" or "column desc"
+                column = parts[0].strip()
+                direction_input = parts[1].strip().lower()
+            else:
+                # Invalid format - either too many parts or invalid direction
+                raise SecurityValidationError("Invalid column name format")
+        else:
+            # No spaces, treat entire string as column name
+            column = original_order_by
+            direction_input = "asc"
+
+        # Validate column name format (before checking against whitelist)
+        if not column:
+            raise SecurityValidationError("Invalid column name format")
+
+        # Check if column has invalid characters
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', column):
+            raise SecurityValidationError("Invalid column name format")
+
+        # Validate direction
+        if direction_input not in ('asc', 'desc'):
+            raise ValueError("Direction must be 'asc' or 'desc'")
+
+        # Whitelist validation: Check if column exists in model
+        allowed_columns = cls._get_allowed_columns()
+        if column.lower() not in allowed_columns:
+            cls._log_security_event(
+                "INVALID_COLUMN_ACCESS",
+                f"Attempted to order by non-existent column: {column}",
+                {"order_by": original_order_by, "requested_column": column, "allowed_columns": list(allowed_columns)}
+            )
+            raise ValueError(
+                f"Invalid order_by column: '{column}'. "
+                f"Valid columns are: {', '.join(sorted(allowed_columns))}"
+            )
+
+        return column.lower(), direction_input
+
+    @classmethod
+    def _log_security_event(cls, event_type: str, message: str, details: dict = None):
+        """
+        Log security events for monitoring and incident response.
+
+        Args:
+            event_type: Type of security event
+            message: Security event message
+            details: Additional event details
+        """
+        try:
+            from reroute.logging import security_logger
+            security_logger.log_injection_attempt(
+                injection_type="SQL",
+                payload=message,
+                context=f"{cls.__name__}: {event_type}",
+                **(details or {})
+            )
+        except ImportError:
+            # Fallback to standard logging if security logger not available
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Security Event [{event_type}]: {message}")
+
+    @classmethod
+    def _apply_secure_ordering(cls, query, order_by: str):
+        """
+        Apply secure ordering to a SQLAlchemy query.
+
+        Args:
+            query: SQLAlchemy query object
+            order_by: Order by parameter (e.g., "name", "created_at desc")
+
+        Returns:
+            Query with secure ordering applied
+
+        Raises:
+            SecurityValidationError: If parameter is malicious
+            ValueError: If parameter format is invalid
+
+        Security Note:
+            This method uses SQLAlchemy's built-in secure ordering functions
+            (asc() and desc()) instead of raw string concatenation to prevent
+            SQL injection attacks.
+        """
+        if not order_by:
+            return query
+
+        # Validate and parse the order_by parameter
+        column, direction = cls._validate_order_by_parameter(order_by)
+
+        try:
+            # Get the column attribute safely
+            column_attr = getattr(cls, column)
+
+            # Apply secure ordering using SQLAlchemy's asc() and desc() functions
+            if direction == "desc":
+                query = query.order_by(desc(column_attr))
+            else:  # asc
+                query = query.order_by(asc(column_attr))
+
+        except InvalidRequestError as e:
+            # This could happen if the column is not orderable
+            cls._log_security_event(
+                "INVALID_ORDERING",
+                f"Failed to apply ordering on column: {column}",
+                {"order_by": order_by, "error": str(e)}
+            )
+            raise ValueError(f"Cannot order by column '{column}': {str(e)}")
+        except AttributeError:
+            # This shouldn't happen due to our whitelist validation, but let's be safe
+            cls._log_security_event(
+                "ATTRIBUTE_ERROR",
+                f"Column attribute not found: {column}",
+                {"order_by": order_by}
+            )
+            raise ValueError(f"Column '{column}' is not a valid orderable attribute")
+
+        return query
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -106,49 +322,38 @@ class Model(Base):
         order_by: Optional[str] = None
     ) -> List:
         """
-        Get all records with pagination
+        Get all records with pagination (SECURE VERSION)
 
         Args:
             session: SQLAlchemy session
-            limit: Maximum number of records
-            offset: Number of records to skip
-            order_by: Column name to order by (must be a valid column)
+            limit: Maximum number of records (must be positive, max 1000)
+            offset: Number of records to skip (must be non-negative)
+            order_by: Column name to order by with optional direction
+                     (e.g., "name", "created_at desc", "name asc")
 
         Returns:
             List of model instances
 
         Raises:
-            ValueError: If order_by is not a valid column name
+            ValueError: If order_by is invalid, or limit/offset are out of range
+            SecurityValidationError: If malicious SQL injection attempt detected
 
         Example:
             users = User.get_all(session, limit=10, offset=0)
-            users = User.get_all(session, order_by='created_at')
+            users = User.get_all(session, order_by='created_at desc')
+            users = User.get_all(session, order_by='name asc')
         """
+        # Validate pagination parameters for security
+        if not isinstance(limit, int) or limit <= 0 or limit > 1000:
+            raise ValueError("limit must be a positive integer not exceeding 1000")
+        if not isinstance(offset, int) or offset < 0:
+            raise ValueError("offset must be a non-negative integer")
+
         query = session.query(cls)
 
+        # Apply secure ordering if specified
         if order_by:
-            # Security: Validate that order_by is an actual column attribute
-            # This prevents SQL injection via arbitrary attribute access
-            valid_columns = {col.key for col in inspect(cls).mapper.column_attrs}
-
-            if order_by not in valid_columns:
-                # Security logging: Log potential SQL injection attempt
-                try:
-                    from reroute.logging import security_logger
-                    security_logger.log_injection_attempt(
-                        injection_type="SQL",
-                        payload=order_by,
-                        context=f"Invalid order_by in {cls.__name__}.get_all()"
-                    )
-                except ImportError:
-                    pass
-
-                raise ValueError(
-                    f"Invalid order_by column: '{order_by}'. "
-                    f"Valid columns are: {', '.join(sorted(valid_columns))}"
-                )
-
-            query = query.order_by(getattr(cls, order_by))
+            query = cls._apply_secure_ordering(query, order_by)
 
         return query.limit(limit).offset(offset).all()
 

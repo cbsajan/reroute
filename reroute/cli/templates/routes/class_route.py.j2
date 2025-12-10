@@ -118,10 +118,19 @@ class {{ class_name }}(RouteBase):
             error: The exception that occurred
 
         Returns:
-            Error response dict
+            Error response dict (sanitized for security)
         """
-        return {
-            "error": str(error),
-            "type": type(error).__name__,
-            "route": "{{ route_path }}"
-        }
+        # Check if debug mode is enabled
+        from config import AppConfig
+
+        if AppConfig.DEBUG:
+            return {
+                "error": str(error),
+                "type": type(error).__name__,
+                "route": "{{ route_path }}"
+            }
+        else:
+            return {
+                "error": "Internal server error",
+                "type": "ServerError"
+            }

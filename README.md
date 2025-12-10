@@ -14,6 +14,7 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 - **Interactive CLI**: Next.js-style project scaffolding with beautiful prompts
 - **Code Generation**: Quickly generate routes, CRUD operations, models, and tests
 - **Environment Config**: .env file support with auto-loading
+- **Secure by Default**: Built-in security best practices and sanitization
 - **Powerful Decorators**: Rate limiting, caching, validation, and more
 - **API Versioning**: Built-in support for base path prefixes (e.g., `/api/v1`)
 
@@ -32,7 +33,10 @@ reroute init myapi
 # Navigate to project
 cd myapi
 
-# Install dependencies
+# Install dependencies (modern approach)
+uv sync
+
+# Or traditional approach
 pip install -r requirements.txt
 
 # Run the server

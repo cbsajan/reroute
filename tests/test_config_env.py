@@ -6,7 +6,7 @@ import pytest
 import os
 import tempfile
 from pathlib import Path
-from reroute.config import Config, DevConfig, ProdConfig
+from reroute.config import Config, DevConfig, ProdConfig, SecretKeyManager
 
 
 def test_env_class_structure():
@@ -145,6 +145,100 @@ def test_load_env_from_file():
     finally:
         # Cleanup
         Path(env_file).unlink(missing_ok=True)
+
+
+def test_ultimate_flexible_config_auto_any_variable():
+    """Test that ANY REROUTE_* variable works automatically without whitelist"""
+    # Test existing variables
+    test_secure_key = SecretKeyManager.generate_secure_key()
+    os.environ['REROUTE_SECRET_KEY'] = test_secure_key
+    os.environ['REROUTE_DATABASE_URL'] = 'sqlite:///test.db'
+
+    # Test completely new variables (these should work automatically)
+    os.environ['REROUTE_NEW_FEATURE'] = 'true'
+    os.environ['REROUTE_API_VERSION'] = 'v2.1'
+    os.environ['REROUTE_MAX_CONNECTIONS'] = '100'
+    os.environ['REROUTE_ENABLED_SERVICES'] = 'auth,api,worker'
+
+    class TestConfig(Config):
+        pass
+
+    # Load from environment
+    TestConfig.load_from_env()
+
+    # Test existing variables
+    assert TestConfig.SECRET_KEY == test_secure_key
+    assert TestConfig.DATABASE_URL == 'sqlite:///test.db'
+
+    # Test new variables - these should be created automatically
+    assert hasattr(TestConfig, 'NEW_FEATURE')
+    assert TestConfig.NEW_FEATURE is True  # Boolean auto-detected
+
+    assert hasattr(TestConfig, 'API_VERSION')
+    assert TestConfig.API_VERSION == 'v2.1'  # String auto-detected
+
+    assert hasattr(TestConfig, 'MAX_CONNECTIONS')
+    assert TestConfig.MAX_CONNECTIONS == 100  # Integer auto-detected
+
+    assert hasattr(TestConfig, 'ENABLED_SERVICES')
+    assert isinstance(TestConfig.ENABLED_SERVICES, list)
+    assert TestConfig.ENABLED_SERVICES == ['auth', 'api', 'worker']  # List auto-detected
+
+    # Cleanup
+    del os.environ['REROUTE_SECRET_KEY']
+    del os.environ['REROUTE_DATABASE_URL']
+    del os.environ['REROUTE_NEW_FEATURE']
+    del os.environ['REROUTE_API_VERSION']
+    del os.environ['REROUTE_MAX_CONNECTIONS']
+    del os.environ['REROUTE_ENABLED_SERVICES']
+
+
+def test_ultimate_flexible_config_empty_values():
+    """Test handling of empty values"""
+    # Note: Don't test SECRET_KEY as null since auto-generation kicks in for security
+    os.environ['REROUTE_DATABASE_URL'] = '~'
+    os.environ['REROUTE_EMPTY_SETTING'] = ''
+    os.environ['REROUTE_NULL_SETTING'] = 'null'
+
+    class TestConfig(Config):
+        pass
+
+    TestConfig.load_from_env()
+
+    # Empty/null values should be set to None (except SECRET_KEY which gets auto-generated)
+    assert TestConfig.DATABASE_URL is None
+    assert hasattr(TestConfig, 'EMPTY_SETTING')
+    assert TestConfig.EMPTY_SETTING is None
+    assert hasattr(TestConfig, 'NULL_SETTING')
+    assert TestConfig.NULL_SETTING is None
+    # SECRET_KEY should be auto-generated securely
+    assert len(TestConfig.SECRET_KEY) >= 32
+
+    # Cleanup
+    del os.environ['REROUTE_DATABASE_URL']
+    del os.environ['REROUTE_EMPTY_SETTING']
+    del os.environ['REROUTE_NULL_SETTING']
+
+
+def test_ultimate_flexible_config_cors_origins_compatibility():
+    """Test backward compatibility for CORS_ORIGINS -> CORS_ALLOW_ORIGINS"""
+    os.environ['REROUTE_CORS_ORIGINS'] = 'https://example.com,https://api.example.com'
+
+    class TestConfig(Config):
+        pass
+
+    TestConfig.load_from_env()
+
+    # Should map to CORS_ALLOW_ORIGINS
+    assert hasattr(TestConfig, 'CORS_ALLOW_ORIGINS')
+    assert isinstance(TestConfig.CORS_ALLOW_ORIGINS, list)
+    assert TestConfig.CORS_ALLOW_ORIGINS == ['https://example.com', 'https://api.example.com']
+
+    # CORS_ORIGINS attribute itself should not be created
+    assert not hasattr(TestConfig, 'CORS_ORIGINS')
+
+    # Cleanup
+    del os.environ['REROUTE_CORS_ORIGINS']
 
 
 if __name__ == "__main__":
