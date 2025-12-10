@@ -12,6 +12,13 @@ import click
 import sys
 from pathlib import Path
 from ..utils import progress_step, success_message, next_steps, handle_error, CLIError
+from ..utils.security import (
+    run_alembic_command,
+    validate_positive_integer,
+    SecurityValidationError,
+    SecureSubprocessError,
+    log_security_event
+)
 
 
 @click.group()
@@ -172,14 +179,46 @@ def migrate(message):
     click.secho("Creating Database Migration", fg='cyan', bold=True)
     click.secho("=" * 50 + "\n", fg='cyan', bold=True)
 
-    # Check if alembic is installed
+    # Security: Validate migration message to prevent injection
     try:
-        import alembic  # noqa: F401
-    except ImportError:
+        if not message or not message.strip():
+            raise SecurityValidationError(
+                "Migration message cannot be empty",
+                "SEC020"
+            )
+
+        # Validate message for injection patterns
+        dangerous_patterns = [';', '&&', '||', '|', '&', '`', '$(', '${']
+        for pattern in dangerous_patterns:
+            if pattern in message:
+                raise SecurityValidationError(
+                    f"Migration message contains dangerous characters: {pattern}",
+                    "SEC021"
+                )
+
+        # Validate message length (prevent extremely long messages)
+        if len(message) > 500:
+            raise SecurityValidationError(
+                "Migration message too long (max 500 characters)",
+                "SEC022"
+            )
+
+        log_security_event(
+            "MIGRATE_VALIDATION",
+            f"Migration message validated: '{message[:50]}{'...' if len(message) > 50 else ''}'",
+            "INFO"
+        )
+
+    except SecurityValidationError as e:
+        log_security_event(
+            "MIGRATE_VALIDATION_FAILED",
+            f"Invalid migration message: '{message}' - {str(e)}",
+            "WARNING"
+        )
         raise CLIError(
-            "Alembic is not installed",
-            suggestion="Install with: pip install alembic",
-            error_code="DB010"
+            str(e),
+            suggestion="Use a simple, descriptive migration message without special characters.",
+            error_code="SEC901"
         )
 
     # Check if migrations are initialized
@@ -191,17 +230,15 @@ def migrate(message):
         )
 
     try:
-        import subprocess
-
         click.secho(f"  Migration: ", fg='blue', nl=False)
         click.secho(message, fg='cyan', bold=True)
         click.echo()
 
         with progress_step("Generating migration"):
-            result = subprocess.run(
-                ['alembic', 'revision', '--autogenerate', '-m', message],
-                capture_output=True,
-                text=True
+            # Use secure alembic command execution
+            result = run_alembic_command(
+                ['revision', '--autogenerate', '-m', message],
+                timeout=180
             )
 
         if result.returncode == 0:
@@ -217,6 +254,28 @@ def migrate(message):
                 error_code="DB012"
             )
 
+    except SecurityValidationError as e:
+        log_security_event(
+            "MIGRATE_SECURITY_ERROR",
+            f"Security error during migration: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Security validation failed",
+            suggestion="Check your migration message and try again.",
+            error_code="SEC902"
+        )
+    except SecureSubprocessError as e:
+        log_security_event(
+            "MIGRATE_EXECUTION_ERROR",
+            f"Command execution error: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Command execution failed",
+            suggestion="Check alembic installation and configuration.",
+            error_code="DB013"
+        )
     except CLIError:
         raise
     except Exception as e:
@@ -244,13 +303,11 @@ def upgrade():
         )
 
     try:
-        import subprocess
-
         with progress_step("Applying migrations to database"):
-            result = subprocess.run(
-                ['alembic', 'upgrade', 'head'],
-                capture_output=True,
-                text=True
+            # Use secure alembic command execution
+            result = run_alembic_command(
+                ['upgrade', 'head'],
+                timeout=300
             )
 
         if result.returncode == 0:
@@ -264,6 +321,28 @@ def upgrade():
                 error_code="DB020"
             )
 
+    except SecurityValidationError as e:
+        log_security_event(
+            "UPGRADE_SECURITY_ERROR",
+            f"Security error during upgrade: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Security validation failed",
+            suggestion="Check your environment and try again.",
+            error_code="SEC903"
+        )
+    except SecureSubprocessError as e:
+        log_security_event(
+            "UPGRADE_EXECUTION_ERROR",
+            f"Command execution error: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Command execution failed",
+            suggestion="Check alembic installation and configuration.",
+            error_code="DB021"
+        )
     except CLIError:
         raise
     except Exception as e:
@@ -284,20 +363,29 @@ def downgrade(steps):
     click.secho("Rolling Back Database Migrations", fg='yellow', bold=True)
     click.secho("=" * 50 + "\n", fg='yellow', bold=True)
 
-    # Security: Validate steps parameter to prevent command injection
+    # Enhanced Security: Validate steps parameter using security utilities
     try:
-        steps_int = int(steps)
-        if steps_int < 1:
-            click.secho("\n[ERROR] Steps must be a positive integer (>= 1)", fg='red', bold=True)
-            click.secho("\n[TIP] Example: reroute db downgrade --steps 1", fg='yellow')
-            sys.exit(1)
-        if steps_int > 100:
-            click.secho("\n[ERROR] Steps cannot exceed 100 for safety", fg='red', bold=True)
-            click.secho("\n[TIP] If you need to rollback more, do it in batches.", fg='yellow')
-            sys.exit(1)
-    except ValueError:
-        click.secho(f"\n[ERROR] Invalid steps value: '{steps}'", fg='red', bold=True)
-        click.secho("\n[TIP] Steps must be a positive integer. Example: --steps 1", fg='yellow')
+        # Validate steps parameter with strict security controls
+        steps_int = validate_positive_integer(
+            steps,
+            max_value=100,  # Prevent unreasonable rollback attempts
+            field_name="steps"
+        )
+        log_security_event(
+            "DOWNGRADE_VALIDATION",
+            f"Steps parameter validated: {steps_int}",
+            "INFO"
+        )
+
+    except SecurityValidationError as e:
+        # Log the security validation failure
+        log_security_event(
+            "DOWNGRADE_VALIDATION_FAILED",
+            f"Invalid steps parameter: '{steps}' - {str(e)}",
+            "WARNING"
+        )
+        click.secho(f"\n[ERROR] {str(e)}", fg='red', bold=True)
+        click.secho("\n[TIP] Example: reroute db downgrade --steps 1", fg='yellow')
         sys.exit(1)
 
     # Check if migrations are initialized
@@ -316,13 +404,11 @@ def downgrade(steps):
         return
 
     try:
-        import subprocess
-
         with progress_step(f"Rolling back {steps_int} migration(s)"):
-            result = subprocess.run(
-                ['alembic', 'downgrade', f'-{steps_int}'],
-                capture_output=True,
-                text=True
+            # Use secure alembic command execution
+            result = run_alembic_command(
+                ['downgrade', f'-{steps_int}'],
+                timeout=300
             )
 
         if result.returncode == 0:
@@ -336,6 +422,30 @@ def downgrade(steps):
                 error_code="DB033"
             )
 
+    except SecurityValidationError as e:
+        # Log security validation failure
+        log_security_event(
+            "DOWNGRADE_SECURITY_ERROR",
+            f"Security error during rollback: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Security validation failed",
+            suggestion="Check your input and try again. Contact administrator if this persists.",
+            error_code="SEC900"
+        )
+    except SecureSubprocessError as e:
+        # Log secure subprocess execution failure
+        log_security_event(
+            "DOWNGRADE_EXECUTION_ERROR",
+            f"Command execution error: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Command execution failed",
+            suggestion="Check alembic installation and configuration.",
+            error_code="DB034"
+        )
     except CLIError:
         raise
     except Exception as e:
@@ -355,13 +465,8 @@ def current():
         )
 
     try:
-        import subprocess
-
-        result = subprocess.run(
-            ['alembic', 'current'],
-            capture_output=True,
-            text=True
-        )
+        # Use secure alembic command execution
+        result = run_alembic_command(['current'], timeout=60)
 
         if result.returncode == 0:
             click.secho("\n[CURRENT] Current migration version:", fg='cyan', bold=True)
@@ -376,6 +481,28 @@ def current():
                 error_code="DB040"
             )
 
+    except SecurityValidationError as e:
+        log_security_event(
+            "CURRENT_SECURITY_ERROR",
+            f"Security error getting current migration: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Security validation failed",
+            suggestion="Check your environment and try again.",
+            error_code="SEC904"
+        )
+    except SecureSubprocessError as e:
+        log_security_event(
+            "CURRENT_EXECUTION_ERROR",
+            f"Command execution error: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Command execution failed",
+            suggestion="Check alembic installation and configuration.",
+            error_code="DB041"
+        )
     except CLIError:
         raise
     except Exception as e:
@@ -395,13 +522,8 @@ def history():
         )
 
     try:
-        import subprocess
-
-        result = subprocess.run(
-            ['alembic', 'history'],
-            capture_output=True,
-            text=True
-        )
+        # Use secure alembic command execution
+        result = run_alembic_command(['history'], timeout=60)
 
         if result.returncode == 0:
             click.secho("\n[HISTORY] Migration history:", fg='cyan', bold=True)
@@ -417,6 +539,28 @@ def history():
                 error_code="DB041"
             )
 
+    except SecurityValidationError as e:
+        log_security_event(
+            "HISTORY_SECURITY_ERROR",
+            f"Security error getting migration history: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Security validation failed",
+            suggestion="Check your environment and try again.",
+            error_code="SEC905"
+        )
+    except SecureSubprocessError as e:
+        log_security_event(
+            "HISTORY_EXECUTION_ERROR",
+            f"Command execution error: {str(e)}",
+            "ERROR"
+        )
+        raise CLIError(
+            "Command execution failed",
+            suggestion="Check alembic installation and configuration.",
+            error_code="DB042"
+        )
     except CLIError:
         raise
     except Exception as e:

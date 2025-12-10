@@ -24,6 +24,50 @@ import click
 from reroute.core.router import Router
 from reroute.config import Config
 from reroute.params import Query, Path as PathParam, Header, Body, Cookie, Form, File, ParamBase
+from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
+
+
+class FlaskSecurityHeadersMiddleware:
+    """
+    Flask middleware for adding comprehensive security headers.
+
+    This middleware adds OWASP-compliant security headers to all HTTP responses
+    to protect against client-side attacks including XSS, clickjacking, and
+    content injection attacks.
+    """
+
+    def __init__(self, app, security_config: SecurityHeadersConfig):
+        """
+        Initialize the security headers middleware.
+
+        Args:
+            app: Flask application instance
+            security_config: Security headers configuration
+        """
+        self.app = app
+        self.security_config = security_config
+
+        # Register the after_request handler
+        self.app.after_request(self._add_security_headers)
+
+    def _add_security_headers(self, response):
+        """
+        Add security headers to the Flask response.
+
+        Args:
+            response: Flask response object
+
+        Returns:
+            Response with security headers added
+        """
+        # Get security headers from configuration
+        security_headers = self.security_config.get_security_headers()
+
+        # Add security headers to response
+        for header_name, header_value in security_headers.items():
+            response.headers[header_name] = header_value
+
+        return response
 
 
 class FlaskAdapter:
@@ -154,6 +198,9 @@ class FlaskAdapter:
             method_upper = method.upper()  # Uppercase for Flask HTTP method
             setattr(self, method_lower, self._create_method_decorator(method_upper))
 
+        # Setup security headers (before CORS to ensure proper ordering)
+        self._setup_security_headers()
+
         # Setup CORS
         self._setup_cors()
 
@@ -162,6 +209,51 @@ class FlaskAdapter:
 
         # Setup health check endpoint
         self._setup_health_check()
+
+    def _setup_security_headers(self) -> None:
+        """
+        BASIC SECURITY ONLY - Maximum freedom with minimal essential protection.
+
+        REROUTE provides only basic essential security headers. Developers can add
+        additional security as needed through their configuration.
+
+        Philosophy: "Give only basic security, let developers add what they need"
+        """
+        # Check if security headers are explicitly disabled
+        security_enabled = getattr(self.config, 'SECURITY_HEADERS_ENABLED', True)
+        if not security_enabled:
+            if self.config.VERBOSE_LOGGING:
+                click.secho("[INFO] Security headers completely disabled", fg='yellow')
+            return
+
+        # Only add BASIC essential security - nothing restrictive
+        if self.config.VERBOSE_LOGGING:
+            click.secho("[BASIC-SECURITY] Adding minimal essential security headers only", fg='blue')
+            click.secho("[BASIC-SECURITY] Developers can add more security as needed", fg='blue')
+
+        # Add only basic essential middleware directly
+        @self.app.after_request
+        def add_basic_security_headers(response):
+            """Add only minimal essential security headers - maximum freedom preserved."""
+
+            # Basic essential headers that don't restrict functionality
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'  # Allow same origin only
+
+            return response
+
+        if self.config.VERBOSE_LOGGING:
+            click.secho("[BASIC-SECURITY] Applied minimal security headers", fg='green')
+            click.secho("[BASIC-SECURITY] Maximum freedom preserved", fg='green')
+
+        # Skip complex security middleware - let developers add what they need
+
+        if self.config.VERBOSE_LOGGING:
+            click.secho(f"[OK] Security headers configured for {security_config.environment.value} environment", fg='green')
+
+            # Log the configured headers (without values for security)
+            headers = security_config.get_security_headers()
+            click.secho(f"  Enabled security headers: {', '.join(headers.keys())}", fg='cyan')
 
     def _setup_health_check(self) -> None:
         """Setup health check endpoint for load balancers."""

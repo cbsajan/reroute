@@ -19,6 +19,7 @@ from reroute.cli.commands import undo_command
 from reroute.cli.commands.helpers import is_reroute_project
 from reroute.cli.update_checker import check_for_updates
 from reroute.cli.utils import CLIError, handle_error
+from reroute.cli.utils.logging_config import setup_security_logging
 
 
 def _version_callback(ctx, param, value):
@@ -43,10 +44,18 @@ def cli(ctx):
     Interactive project scaffolding and code generation.
 
     """
+    # Initialize security logging
+    try:
+        setup_security_logging()
+    except Exception as e:
+        # Continue even if security logging fails
+        click.secho(f"Warning: Could not initialize security logging: {e}", fg='yellow', err=True)
+
     # Check for updates (non-blocking, silent on errors)
     if ctx.invoked_subcommand and ctx.invoked_subcommand not in ['--version', '-V']:
         from reroute import __version__
         check_for_updates(__version__)
+
 
 # Register all command groups
 cli.add_command(db)  # type: ignore

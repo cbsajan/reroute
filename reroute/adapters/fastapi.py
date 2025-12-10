@@ -10,10 +10,56 @@ from typing import Optional, Dict, Any, Type, get_type_hints
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from reroute.core.router import Router
 from reroute.config import Config
 from reroute.params import Query, Path as PathParam, Header, Body, Cookie, Form, File, ParamBase
+from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    FastAPI middleware for adding comprehensive security headers.
+
+    This middleware adds OWASP-compliant security headers to all HTTP responses
+    to protect against client-side attacks including XSS, clickjacking, and
+    content injection attacks.
+    """
+
+    def __init__(self, app, security_config: SecurityHeadersConfig):
+        """
+        Initialize the security headers middleware.
+
+        Args:
+            app: FastAPI application instance
+            security_config: Security headers configuration
+        """
+        super().__init__(app)
+        self.security_config = security_config
+
+    async def dispatch(self, request: Request, call_next):
+        """
+        Process request and add security headers to response.
+
+        Args:
+            request: Incoming request
+            call_next: Next middleware in the chain
+
+        Returns:
+            Response with security headers added
+        """
+        # Call the next middleware in the chain
+        response = await call_next(request)
+
+        # Get security headers from configuration
+        security_headers = self.security_config.get_security_headers()
+
+        # Add security headers to response
+        for header_name, header_value in security_headers.items():
+            response.headers[header_name] = header_value
+
+        return response
 
 
 class FastAPIAdapter:
@@ -55,6 +101,9 @@ class FastAPIAdapter:
         # Apply OpenAPI configuration
         self._setup_openapi_paths()
 
+        # Setup security headers (before CORS to ensure proper ordering)
+        self._setup_security_headers()
+
         # Setup CORS
         self._setup_cors()
 
@@ -63,6 +112,114 @@ class FastAPIAdapter:
 
         # Setup health check endpoint
         self._setup_health_check()
+
+    def _setup_security_headers(self) -> None:
+        """
+        BASIC SECURITY ONLY - Maximum freedom with minimal essential protection.
+
+        REROUTE provides only basic essential security headers. Developers can add
+        additional security as needed through their configuration.
+
+        Philosophy: "Give only basic security, let developers add what they need"
+        """
+        # Check if security headers are explicitly disabled
+        security_enabled = getattr(self.config, 'SECURITY_HEADERS_ENABLED', True)
+        if not security_enabled:
+            if self.config.VERBOSE_LOGGING:
+                print("[INFO] Security headers completely disabled")
+            return
+
+        # Only add BASIC essential security - nothing restrictive
+        if self.config.VERBOSE_LOGGING:
+            print("[BASIC-SECURITY] Adding minimal essential security headers only")
+            print("[BASIC-SECURITY] Developers can add more security as needed")
+
+        # Add only basic essential middleware directly
+        from fastapi import Request, Response
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        class BasicSecurityMiddleware(BaseHTTPMiddleware):
+            """Add only minimal essential security headers - maximum freedom preserved."""
+
+            async def dispatch(self, request: Request, call_next):
+                response = await call_next(request)
+
+                # Basic essential headers that don't restrict functionality
+                response.headers['X-Content-Type-Options'] = 'nosniff'
+                response.headers['X-Frame-Options'] = 'SAMEORIGIN'  # Allow same origin only
+
+                return response
+
+        self.app.add_middleware(BasicSecurityMiddleware)
+
+        if self.config.VERBOSE_LOGGING:
+            print("[BASIC-SECURITY] Applied minimal security headers")
+            print("[BASIC-SECURITY] Maximum freedom preserved")
+
+        # Skip complex security middleware - let developers add what they need
+
+        # -----------------------------------------------------------------
+        # COMMENTED OUT: All security header code completely disabled
+        # This provides the same freedom as raw FastAPI/Flask with no restrictions
+        # -----------------------------------------------------------------
+
+        # ---------------------------------------------------------------
+        # COMMENTED OUT: Original security code for reference only
+        # This code would add restrictions, but we want maximum freedom
+        # ---------------------------------------------------------------
+        """
+        # Check if security headers are enabled
+        security_enabled = getattr(self.config, 'SECURITY_HEADERS_ENABLED', True)
+        if not security_enabled:
+            if self.config.VERBOSE_LOGGING:
+                print("[INFO] Security headers are disabled")
+            return
+
+        # Get security headers configuration from config
+        security_config = getattr(self.config, 'SECURITY_HEADERS', None)
+
+        if security_config is None:
+            # Create default configuration based on environment
+            environment = detect_environment()
+
+            # Check if we're in production
+            is_production = environment.value == 'production'
+
+            # Create appropriate security configuration
+            if getattr(self.config, 'DEBUG', False):
+                # Development mode - more permissive
+                security_config = SecurityHeadersFactory.create_default(environment=environment.value)
+                # Apply development-specific configuration for ultra-loose security
+                security_config.configure_for_development()
+            else:
+                # Production mode - strict security
+                security_config = SecurityHeadersFactory.create_for_single_page_app()
+
+        # Override with environment-specific settings if available
+        env_cdn_domains = getattr(self.config, 'SECURITY_CDN_DOMAINS', None)
+        if env_cdn_domains and isinstance(env_cdn_domains, list):
+            security_config.configure_for_cdn(env_cdn_domains)
+
+        env_api_domains = getattr(self.config, 'SECURITY_API_DOMAINS', None)
+        if env_api_domains and isinstance(env_api_domains, list):
+            security_config.configure_for_api(env_api_domains)
+
+        # Apply custom headers from config
+        custom_headers = getattr(self.config, 'SECURITY_CUSTOM_HEADERS', {})
+        if custom_headers and isinstance(custom_headers, dict):
+            for name, value in custom_headers.items():
+                security_config.add_custom_header(name, value)
+
+        # Add the security headers middleware
+        self.app.add_middleware(SecurityHeadersMiddleware, security_config=security_config)
+
+        if self.config.VERBOSE_LOGGING:
+            print(f"[OK] Security headers configured for {security_config.environment.value} environment")
+
+            # Log the configured headers (without values for security)
+            headers = security_config.get_security_headers()
+            print(f"  Enabled security headers: {', '.join(headers.keys())}")
+        """
 
     def _setup_health_check(self) -> None:
         """Setup health check endpoint for load balancers."""

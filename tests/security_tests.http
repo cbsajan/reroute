@@ -1,0 +1,443 @@
+### HTTP Security Tests for SQL Injection Protection
+###
+### This file contains HTTP requests to test the security of the REROUTE framework
+### against SQL injection attacks via the order_by parameter.
+###
+### Usage:
+### - Use with VS Code REST Client extension or other HTTP client tools
+### - Run these tests against a running REROUTE API server
+### - Monitor server logs for security events and injection attempts
+###
+
+@baseUrl = http://localhost:8000
+@authToken = Bearer your-test-token-here
+
+### 1. LEGITIMATE REQUESTS (Should work normally)
+
+### Get all users without ordering (baseline)
+GET {{baseUrl}}/api/users
+Content-Type: application/json
+
+###
+
+### Get all users with valid ordering by name
+GET {{baseUrl}}/api/users?order_by=name
+Content-Type: application/json
+
+###
+
+### Get all users with valid ordering by created_at (ascending)
+GET {{baseUrl}}/api/users?order_by=created_at
+Content-Type: application/json
+
+###
+
+### Get all users with valid ordering by created_at (descending)
+GET {{baseUrl}}/api/users?order_by=created_at desc
+Content-Type: application/json
+
+###
+
+### Get all users with valid ordering by id (descending)
+GET {{baseUrl}}/api/users?order_by=id desc
+Content-Type: application/json
+
+###
+
+### Get all users with valid ordering and case-insensitive parameters
+GET {{baseUrl}}/api/users?order_by=NAME ASC
+Content-Type: application/json
+
+###
+
+### Get all users with whitespace in parameters
+GET {{baseUrl}}/api/users?order_by=  name   desc
+Content-Type: application/json
+
+###
+
+### Get all users with pagination and valid ordering
+GET {{baseUrl}}/api/users?limit=10&offset=0&order_by=name
+Content-Type: application/json
+
+###
+
+### 2. SQL INJECTION ATTEMPTS (Should be blocked with 400/403 status)
+
+### Basic SQL injection with DROP TABLE
+GET {{baseUrl}}/api/users?order_by=name; DROP TABLE users; --
+Content-Type: application/json
+
+###
+
+### SQL injection with DELETE statement
+GET {{baseUrl}}/api/users?order_by=email'; DELETE FROM users; --
+Content-Type: application/json
+
+###
+
+### Boolean-based SQL injection
+GET {{baseUrl}}/api/users?order_by=name OR 1=1
+Content-Type: application/json
+
+###
+
+### SQL injection with AND condition
+GET {{baseUrl}}/api/users?order_by=name AND 1=1
+Content-Type: application/json
+
+###
+
+### SQL injection with UNION SELECT
+GET {{baseUrl}}/api/users?order_by=name UNION SELECT password FROM admin_users
+Content-Type: application/json
+
+###
+
+### SQL injection with single quotes
+GET {{baseUrl}}/api/users?order_by=name' OR '1'='1
+Content-Type: application/json
+
+###
+
+### SQL injection with single quotes AND
+GET {{baseUrl}}/api/users?order_by=email' AND '1'='1
+Content-Type: application/json
+
+###
+
+### SQL injection with EXEC statement
+GET {{baseUrl}}/api/users?order_by=name; EXEC xp_cmdshell('dir')
+Content-Type: application/json
+
+###
+
+### SQL injection with stored procedure
+GET {{baseUrl}}/api/users?order_by=id; sp_helpdb
+Content-Type: application/json
+
+###
+
+### 3. ADVANCED SQL INJECTION ATTEMPTS
+
+### Time-based SQL injection (MySQL)
+GET {{baseUrl}}/api/users?order_by=name; SELECT SLEEP(5)
+Content-Type: application/json
+
+###
+
+### Time-based SQL injection (PostgreSQL)
+GET {{baseUrl}}/api/users?order_by=age; SELECT pg_sleep(5)
+Content-Type: application/json
+
+###
+
+### Time-based SQL injection (SQL Server)
+GET {{baseUrl}}/api/users?order_by=email'; WAITFOR DELAY '00:00:05'
+Content-Type: application/json
+
+###
+
+### SQL injection with BENCHMARK function
+GET {{baseUrl}}/api/users?order_by=name; SELECT BENCHMARK(1000000,MD5(1))
+Content-Type: application/json
+
+###
+
+### SQL injection with CONVERT function
+GET {{baseUrl}}/api/users?order_by=name; CONVERT(int, 'test')
+Content-Type: application/json
+
+###
+
+### SQL injection with CAST function
+GET {{baseUrl}}/api/users?order_by=email; CAST('test' AS INT)
+Content-Type: application/json
+
+###
+
+### SQL injection with CHAR function
+GET {{baseUrl}}/api/users?order_by=id; CHAR(65,66,67)
+Content-Type: application/json
+
+###
+
+### SQL injection with ASCII function
+GET {{baseUrl}}/api/users?order_by=name; ASCII('A')
+Content-Type: application.json
+
+###
+
+### SQL injection with CONCAT function
+GET {{baseUrl}}/api/users?order_by=email; CONCAT(user,password)
+Content-Type: application/json
+
+###
+
+### SQL injection with SUBSTRING function
+GET {{baseUrl}}/api/users?order_by=name; SUBSTRING(password,1,1)
+Content-Type: application/json
+
+###
+
+### SQL injection with LEN function
+GET {{baseUrl}}/api/users?order_by=age; LEN(password)
+Content-Type: application/json
+
+###
+
+### 4. INFORMATION_SCHEMA AND SYSTEM TABLE ACCESS ATTEMPTS
+
+### Attempt to access information_schema (MySQL)
+GET {{baseUrl}}/api/users?order_by=information_schema.tables
+Content-Type: application/json
+
+###
+
+### Attempt to access sys.objects (SQL Server)
+GET {{baseUrl}}/api/users?order_by=sys.objects
+Content-Type: application/json
+
+###
+
+### Attempt to access pg_catalog (PostgreSQL)
+GET {{baseUrl}}/api/users?order_by=pg_catalog.pg_tables
+Content-Type: application/json
+
+###
+
+### Attempt to access mysql.sys tables
+GET {{baseUrl}}/api/users?order_by=mysql.sys.user
+Content-Type: application/json
+
+###
+
+### 5. FILE OPERATION ATTEMPTS
+
+### LOAD_FILE attempt (MySQL)
+GET {{baseUrl}}/api/users?order_by=LOAD_FILE('/etc/passwd')
+Content-Type: application/json
+
+###
+
+### INTO OUTFILE attempt (MySQL)
+GET {{baseUrl}}/api/users?order_by=name INTO OUTFILE '/tmp/malicious.txt'
+Content-Type: application/json
+
+###
+
+### INTO DUMPFILE attempt (MySQL)
+GET {{baseUrl}}/api/users?order_by=email INTO DUMPFILE '/tmp/dump.txt'
+Content-Type: application/json
+
+###
+
+### 6. SCRIPT INJECTION ATTEMPTS
+
+### JavaScript injection
+GET {{baseUrl}}/api/users?order_by=name; javascript:alert('XSS')
+Content-Type: application/json
+
+###
+
+### Script tag injection
+GET {{baseUrl}}/api/users?order_by=<script>alert('XSS')</script>
+Content-Type: application/json
+
+###
+
+### Eval function injection
+GET {{baseUrl}}/api/users?order_by=eval('malicious_code()')
+Content-Type: application/json
+
+###
+
+### 7. BUFFER OVERFLOW ATTEMPTS
+
+### Very long parameter (over 100 characters)
+GET {{baseUrl}}/api/users?order_by=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Content-Type: application/json
+
+###
+
+### Long parameter with SQL injection
+GET {{baseUrl}}/api/users?order_by=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; DROP TABLE users; --
+Content-Type: application/json
+
+###
+
+### 8. INVALID FORMATS (Should be blocked)
+
+### Invalid direction
+GET {{baseUrl}}/api/users?order_by=name invalid_direction
+Content-Type: application/json
+
+###
+
+### Too many parameters
+GET {{baseUrl}}/api/users?order_by=name desc extra_param
+Content-Type: application/json
+
+###
+
+### Invalid column name with numbers
+GET {{baseUrl}}/api/users?order_by=123name
+Content-Type: application/json
+
+###
+
+### Invalid column name with special characters
+GET {{baseUrl}}/api/users?order_by=name-with-dash
+Content-Type: application/json
+
+###
+
+### Invalid column name with spaces
+GET {{baseUrl}}/api/users?order_by=name with spaces
+Content-Type: application/json
+
+###
+
+### Invalid column name with semicolon
+GET {{baseUrl}}/api/users?order_by=name;semicolon
+Content-Type: application/json
+
+###
+
+### 9. PAGINATION ATTACK ATTEMPTS
+
+### Negative limit value
+GET {{baseUrl}}/api/users?limit=-10
+Content-Type: application/json
+
+###
+
+### Zero limit value
+GET {{baseUrl}}/api/users?limit=0
+Content-Type: application/json
+
+###
+
+### Excessive limit value (potential DoS)
+GET {{baseUrl}}/api/users?limit=999999
+Content-Type: application/json
+
+###
+
+### Negative offset value
+GET {{baseUrl}}/api/users?offset=-10
+Content-Type: application/json
+
+###
+
+### 10. COMBINED ATTACKS
+
+### SQL injection with invalid pagination
+GET {{baseUrl}}/api/users?limit=-1&offset=-1&order_by=name'; DROP TABLE users; --
+Content-Type: application/json
+
+###
+
+### Multiple attack vectors
+GET {{baseUrl}}/api/users?order_by=name OR 1=1; DROP TABLE users; -- <script>alert(1)</script>
+Content-Type: application/json
+
+###
+
+### Unicode-based injection attempt
+GET {{baseUrl}}/api/users?order_by=%6e%61%6d%65%3b%20%44%52%4f%50%20%54%41%42%4c%45%20%75%73%65%72%73%3b%20%2d%2d
+Content-Type: application/json
+
+###
+
+### 11. POST REQUESTS WITH MALICIOUS PAYLOADS
+### (Testing if the same validation is applied to POST/PUT requests)
+
+POST {{baseUrl}}/api/users/search
+Content-Type: application/json
+
+{
+  "filters": {},
+  "order_by": "name; DROP TABLE users; --",
+  "limit": 10
+}
+
+###
+
+POST {{baseUrl}}/api/users/search
+Content-Type: application/json
+
+{
+  "filters": {},
+  "order_by": "name OR 1=1",
+  "limit": 10
+}
+
+###
+
+POST {{baseUrl}}/api/users/search
+Content-Type: application/json
+
+{
+  "filters": {},
+  "order_by "<script>alert('XSS')</script>",
+  "limit": 10
+}
+
+###
+
+### 12. AUTHENTICATED SECURITY TESTS
+### (These tests verify that security checks work for authenticated users too)
+
+GET {{baseUrl}}/api/users?order_by=name; DROP TABLE users; --
+Authorization: {{authToken}}
+Content-Type: application/json
+
+###
+
+POST {{baseUrl}}/api/users/search
+Authorization: {{authToken}}
+Content-Type: application/json
+
+{
+  "filters": {},
+  "order_by": "information_schema.tables",
+  "limit": 10
+}
+
+###
+
+### 13. RATE LIMITING TESTS
+### (Send multiple rapid requests to test rate limiting + security)
+
+GET {{baseUrl}}/api/users?order_by=name; DROP TABLE users; --
+Content-Type: application/json
+
+###
+
+GET {{baseUrl}}/api/users?order_by=email; DELETE FROM users; --
+Content-Type: application/json
+
+###
+
+GET {{baseUrl}}/api/users?order_by=age OR 1=1
+Content-Type: application/json
+
+###
+
+### Expected Security Response Patterns:
+###
+### 1. All SQL injection attempts should return HTTP 400 (Bad Request) or 403 (Forbidden)
+### 2. Response body should include error message explaining the security violation
+### 3. Security events should be logged in server logs
+### 4. Malicious requests should not affect database integrity
+### 5. Valid requests should continue to work normally
+### 6. Rate limiting should activate after multiple failed attempts
+### 7. Server should remain responsive and not crash from malicious input
+###
+### Monitor server logs for:
+### - Security event warnings/errors
+### - Injection attempt logs
+### - SQL query execution logs
+### - Database connection status
+### - Response time anomalies

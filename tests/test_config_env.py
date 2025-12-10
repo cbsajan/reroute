@@ -6,7 +6,7 @@ import pytest
 import os
 import tempfile
 from pathlib import Path
-from reroute.config import Config, DevConfig, ProdConfig
+from reroute.config import Config, DevConfig, ProdConfig, SecretKeyManager
 
 
 def test_env_class_structure():
@@ -150,7 +150,8 @@ def test_load_env_from_file():
 def test_ultimate_flexible_config_auto_any_variable():
     """Test that ANY REROUTE_* variable works automatically without whitelist"""
     # Test existing variables
-    os.environ['REROUTE_SECRET_KEY'] = 'test-secret-key-123'
+    test_secure_key = SecretKeyManager.generate_secure_key()
+    os.environ['REROUTE_SECRET_KEY'] = test_secure_key
     os.environ['REROUTE_DATABASE_URL'] = 'sqlite:///test.db'
 
     # Test completely new variables (these should work automatically)
@@ -166,7 +167,7 @@ def test_ultimate_flexible_config_auto_any_variable():
     TestConfig.load_from_env()
 
     # Test existing variables
-    assert TestConfig.SECRET_KEY == 'test-secret-key-123'
+    assert TestConfig.SECRET_KEY == test_secure_key
     assert TestConfig.DATABASE_URL == 'sqlite:///test.db'
 
     # Test new variables - these should be created automatically
@@ -194,25 +195,29 @@ def test_ultimate_flexible_config_auto_any_variable():
 
 def test_ultimate_flexible_config_empty_values():
     """Test handling of empty values"""
-    os.environ['REROUTE_SECRET_KEY'] = 'null'
+    # Note: Don't test SECRET_KEY as null since auto-generation kicks in for security
     os.environ['REROUTE_DATABASE_URL'] = '~'
     os.environ['REROUTE_EMPTY_SETTING'] = ''
+    os.environ['REROUTE_NULL_SETTING'] = 'null'
 
     class TestConfig(Config):
         pass
 
     TestConfig.load_from_env()
 
-    # Empty/null values should be set to None
-    assert TestConfig.SECRET_KEY is None
+    # Empty/null values should be set to None (except SECRET_KEY which gets auto-generated)
     assert TestConfig.DATABASE_URL is None
     assert hasattr(TestConfig, 'EMPTY_SETTING')
     assert TestConfig.EMPTY_SETTING is None
+    assert hasattr(TestConfig, 'NULL_SETTING')
+    assert TestConfig.NULL_SETTING is None
+    # SECRET_KEY should be auto-generated securely
+    assert len(TestConfig.SECRET_KEY) >= 32
 
     # Cleanup
-    del os.environ['REROUTE_SECRET_KEY']
     del os.environ['REROUTE_DATABASE_URL']
     del os.environ['REROUTE_EMPTY_SETTING']
+    del os.environ['REROUTE_NULL_SETTING']
 
 
 def test_ultimate_flexible_config_cors_origins_compatibility():
