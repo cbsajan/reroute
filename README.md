@@ -1,6 +1,16 @@
-# REROUTE
+<div align="center">
+  <img src="assets/logo-light.svg" alt="REROUTE Logo" width="200">
+  <h1>REROUTE</h1>
+  <p><em>File-based routing for Python backends</em></p>
+  <p><strong>Inspired by Next.js, powered by FastAPI/Flask</strong></p>
 
-**File-based routing for Python backends** - Inspired by Next.js, powered by FastAPI/Flask
+  [![PyPI version](https://badge.fury.io/py/reroute.svg)](https://pypi.org/project/reroute/)
+  [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+  [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/cbsajan/reroute/blob/main/LICENSE)
+
+</div>
+
+---
 
 REROUTE brings the simplicity of file-based routing to Python backend development. Just create files in folders, and they automatically become API endpoints.
 
@@ -8,36 +18,40 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 
 - **File-based Routing**: Folder structure maps directly to URL paths
 - **Class-based Routes**: Clean, organized route handlers with lifecycle hooks
+- **Multi-framework Support**: Works with FastAPI and Flask (Django coming soon)
 - **Parameter Injection**: FastAPI-style parameter extraction (Query, Path, Header, Body, etc.)
 - **Pydantic Models**: Generate data validation models with CLI
-- **Framework Adapters**: Works with FastAPI (Flask, Django support coming)
 - **Interactive CLI**: Next.js-style project scaffolding with beautiful prompts
 - **Code Generation**: Quickly generate routes, CRUD operations, models, and tests
-- **Environment Config**: .env file support with auto-loading
-- **Secure by Default**: Built-in security best practices and sanitization
 - **Powerful Decorators**: Rate limiting, caching, validation, and more
+- **Security Headers**: OWASP-compliant security headers out of the box (CSP, HSTS, X-Frame-Options)
+- **Environment Config**: .env file support with auto-loading
 - **API Versioning**: Built-in support for base path prefixes (e.g., `/api/v1`)
 
 ## Installation
 
 ```bash
-pip install reroute
+# With FastAPI
+pip install reroute[fastapi]
+
+# With Flask
+pip install reroute[flask]
+
+# Or using uv (faster)
+uv pip install reroute[fastapi]
 ```
 
 ## Quick Start
 
 ```bash
 # Create a new project
-reroute init myapi
+reroute init myapi --framework fastapi
 
 # Navigate to project
 cd myapi
 
-# Install dependencies (modern approach)
-uv sync
-
-# Or traditional approach
-pip install -r requirements.txt
+# Install dependencies
+uv sync  # or: pip install -r requirements.txt
 
 # Run the server
 python main.py
@@ -45,39 +59,64 @@ python main.py
 
 Visit `http://localhost:7376/docs` for interactive API documentation.
 
+## Generate Routes with CLI
+
+```bash
+# Generate a new route
+reroute create route --path /users --name User --methods GET,POST
+
+# This creates app/routes/users/page.py with:
+# - GET endpoint for listing users
+# - POST endpoint for creating users
+# - Rate limiting and caching decorators
+```
+
 ## Documentation
 
-📚 **[Complete Documentation](https://cbsajan.github.io/reroute-docs)** - Full guides, API reference, and examples
+**[Complete Documentation](https://cbsajan.github.io/reroute-docs)** - Full guides, API reference, and examples
 
 Quick links:
-- [Getting Started](https://cbsajan.github.io/reroute-docs/latest/getting-started/) - Installation and first route
+- [Getting Started](https://cbsajan.github.io/reroute-docs/latest/getting-started/quickstart/) - Installation and first route
 - [CLI Commands](https://cbsajan.github.io/reroute-docs/latest/cli/commands/) - Complete CLI reference
+- [Decorators](https://cbsajan.github.io/reroute-docs/latest/guides/decorators/) - Rate limiting, caching, validation
+- [Security](https://cbsajan.github.io/reroute-docs/latest/guides/security/) - Security headers and best practices
 - [API Reference](https://cbsajan.github.io/reroute-docs/latest/api/) - RouteBase, parameters, decorators, config
 - [Examples](https://cbsajan.github.io/reroute-docs/latest/examples/) - CRUD, authentication, rate limiting, caching
-- [Contributing](CONTRIBUTING.md) - How to contribute to REROUTE
 
 ## How It Works
 
-REROUTE uses your folder structure to create API routes. Each folder becomes a URL path, and each `page.py` file defines the route handlers.
+REROUTE uses your folder structure to create API routes:
 
 ```
-app/routes/hello/page.py → /hello
-app/routes/users/page.py → /users
-app/routes/posts/page.py → /posts
+app/routes/
+    users/
+        page.py          -> /users
+        [id]/
+            page.py      -> /users/{id}
+    products/
+        page.py          -> /products
+        categories/
+            page.py      -> /products/categories
 ```
 
-**API Versioning with Base Path:**
-Instead of creating nested folders, use `API_BASE_PATH` in config:
+Each `page.py` contains a class with HTTP methods:
 
 ```python
-# config.py
-API_BASE_PATH = "/api/v1"
-```
+from reroute import RouteBase
+from reroute.decorators import cache, rate_limit
 
-Now your routes are automatically prefixed:
-```
-app/routes/users/page.py → /api/v1/users
-app/routes/posts/page.py → /api/v1/posts
+class UserRoutes(RouteBase):
+    tag = "Users"
+
+    @cache(duration=60)
+    def get(self):
+        """Get all users."""
+        return {"users": ["Alice", "Bob"]}
+
+    @rate_limit("10/min")
+    def post(self):
+        """Create a new user."""
+        return {"message": "User created", "id": 1}
 ```
 
 ## Key Concepts
@@ -91,16 +130,22 @@ Each route is a Python class with methods for HTTP verbs (get, post, put, delete
 ### Lifecycle Hooks
 Routes support `before_request`, `after_request`, and `on_error` hooks for common patterns.
 
+### Decorators
+Built-in decorators for rate limiting, caching, validation, and authentication.
+
 ### Configuration
-Every project has a `config.py` file to customize server settings, routing behavior, and more.
+Every project has a `config.py` file to customize server settings, routing behavior, and security headers.
 
 ### API Versioning
 Use `API_BASE_PATH` to prefix all routes (e.g., `/api/v1`).
 
 ## Framework Support
 
-- **FastAPI** - Fully supported with OpenAPI docs
-- **Flask** - Coming soon
+| Framework | Status | OpenAPI Docs |
+|-----------|--------|--------------|
+| FastAPI | Fully Supported | Swagger UI, ReDoc |
+| Flask | Fully Supported | Swagger UI, Scalar UI |
+| Django | Coming Soon | - |
 
 ## License
 
@@ -118,4 +163,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-Built with by developers, for developers.
+<div align="center">
+  Built by developers, for developers.
+</div>
