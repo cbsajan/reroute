@@ -563,10 +563,10 @@ class SecurityHeadersFactory:
         # API-specific CSP
         if config.csp:
             # API doesn't need most CSP restrictions
-            config.remove_directive("script-src")
-            config.remove_directive("style-src")
-            config.remove_directive("font-src")
-            config.remove_directive("img-src")
+            config.csp.remove_directive("script-src")
+            config.csp.remove_directive("style-src")
+            config.csp.remove_directive("font-src")
+            config.csp.remove_directive("img-src")
 
             # Only essential restrictions for API
             config.csp.add_directive(CSPDirective("default-src", "'none'"))
@@ -638,6 +638,10 @@ def detect_environment() -> Environment:
             return Environment.PRODUCTION
         elif env_value in test_indicators:
             return Environment.TESTING
+
+    # Check for development indicators
+    if os.getenv('DEBUG', '').lower() in ['true', '1', 'yes', 'on']:
+        return Environment.DEVELOPMENT
 
     # Check for common testing indicators
     if 'pytest' in os.sys.modules or 'unittest' in os.sys.modules:

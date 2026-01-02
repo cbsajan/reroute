@@ -181,6 +181,14 @@ jobs:
       - name: Notify success
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          echo "✅ Successfully published REROUTE v$VERSION to PyPI!"
-          echo "📦 Package: https://pypi.org/project/reroute/$VERSION/"
-          echo "🏷️  Tag: https://github.com/cbsajan/reroute/releases/tag/v$VERSION"
+          echo "Successfully published REROUTE v$VERSION to PyPI!"
+          echo "Package: https://pypi.org/project/reroute/$VERSION/"
+          echo "Tag: https://github.com/cbsajan/reroute/releases/tag/v$VERSION"
+
+      - name: Trigger docs deployment
+        if: success()
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          repository: cbsajan/reroute-docs
+          event-type: docs-deploy

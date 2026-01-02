@@ -212,48 +212,52 @@ class FlaskAdapter:
 
     def _setup_security_headers(self) -> None:
         """
-        BASIC SECURITY ONLY - Maximum freedom with minimal essential protection.
+        COMPREHENSIVE SECURITY HEADERS - OWASP-compliant protection.
 
-        REROUTE provides only basic essential security headers. Developers can add
-        additional security as needed through their configuration.
-
-        Philosophy: "Give only basic security, let developers add what they need"
+        REROUTE provides comprehensive security headers by default with environment-specific
+        configurations. Maximum protection in production, developer-friendly in development.
         """
         # Check if security headers are explicitly disabled
         security_enabled = getattr(self.config, 'SECURITY_HEADERS_ENABLED', True)
         if not security_enabled:
-            if self.config.VERBOSE_LOGGING:
-                click.secho("[INFO] Security headers completely disabled", fg='yellow')
             return
 
-        # Only add BASIC essential security - nothing restrictive
-        if self.config.VERBOSE_LOGGING:
-            click.secho("[BASIC-SECURITY] Adding minimal essential security headers only", fg='blue')
-            click.secho("[BASIC-SECURITY] Developers can add more security as needed", fg='blue')
+        # Auto-detect environment for appropriate security level
+        environment = detect_environment()
 
-        # Add only basic essential middleware directly
-        @self.app.after_request
-        def add_basic_security_headers(response):
-            """Add only minimal essential security headers - maximum freedom preserved."""
+        # Create comprehensive security configuration
+        security_config = SecurityHeadersFactory.create_default(environment=environment)
 
-            # Basic essential headers that don't restrict functionality
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            response.headers['X-Frame-Options'] = 'SAMEORIGIN'  # Allow same origin only
+        # Customize based on configuration if available
+        if hasattr(self.config, 'SECURITY_CSP_ENABLED'):
+            if not self.config.SECURITY_CSP_ENABLED:
+                security_config.csp = None
 
-            return response
+        if hasattr(self.config, 'SECURITY_HSTS_MAX_AGE'):
+            if security_config.hsts:
+                security_config.hsts.max_age = self.config.SECURITY_HSTS_MAX_AGE
 
-        if self.config.VERBOSE_LOGGING:
-            click.secho("[BASIC-SECURITY] Applied minimal security headers", fg='green')
-            click.secho("[BASIC-SECURITY] Maximum freedom preserved", fg='green')
+        if hasattr(self.config, 'SECURITY_X_FRAME_OPTIONS'):
+            if security_config.x_frame_options:
+                security_config.x_frame_options.option = self.config.SECURITY_X_FRAME_OPTIONS
 
-        # Skip complex security middleware - let developers add what they need
+        # Add CDN domains if configured
+        if hasattr(self.config, 'SECURITY_CDN_DOMAINS') and self.config.SECURITY_CDN_DOMAINS:
+            if security_config.csp:
+                for domain in self.config.SECURITY_CDN_DOMAINS:
+                    security_config.csp.add_default_src(domain)
+                    security_config.csp.add_script_src(domain)
+                    security_config.csp.add_style_src(domain)
+                    security_config.csp.add_img_src(domain)
 
-        if self.config.VERBOSE_LOGGING:
-            click.secho(f"[OK] Security headers configured for {security_config.environment.value} environment", fg='green')
+        # Add API domains if configured
+        if hasattr(self.config, 'SECURITY_API_DOMAINS') and self.config.SECURITY_API_DOMAINS:
+            if security_config.csp:
+                for domain in self.config.SECURITY_API_DOMAINS:
+                    security_config.csp.add_connect_src(domain)
 
-            # Log the configured headers (without values for security)
-            headers = security_config.get_security_headers()
-            click.secho(f"  Enabled security headers: {', '.join(headers.keys())}", fg='cyan')
+        # Apply the comprehensive security middleware
+        FlaskSecurityHeadersMiddleware(self.app, security_config)
 
     def _setup_health_check(self) -> None:
         """Setup health check endpoint for load balancers."""
