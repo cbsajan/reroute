@@ -3,6 +3,7 @@ Base Model Class for REROUTE
 
 Provides Django-style base model with common fields and CRUD methods.
 """
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Set

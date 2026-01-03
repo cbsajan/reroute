@@ -67,6 +67,20 @@ class TestEnvironmentDetection:
             is_prod = SecretKeyManager.is_production_environment()
             assert is_prod is False
 
+    @pytest.mark.parametrize("ci_env_var", [
+        'CI',
+        'GITHUB_ACTIONS',
+        'TRAVIS',
+        'GITLAB_CI',
+        'CIRCLECI',
+    ])
+    def test_ci_environment_not_detected_as_production(self, ci_env_var):
+        """Test that CI environments are NOT detected as production."""
+        # Even if production indicators are present, CI should override
+        with patch.dict(os.environ, {ci_env_var: 'true', 'ENV': 'production'}, clear=True):
+            is_prod = SecretKeyManager.is_production_environment()
+            assert is_prod is False
+
     @pytest.mark.parametrize("env_var,env_value", [
         ('ENV', 'production'),
         ('ENVIRONMENT', 'prod'),
@@ -100,10 +114,12 @@ class TestEnvironmentDetection:
     def test_filesystem_indicators_not_windows(self):
         """Test production detection via filesystem indicators (non-Windows)."""
         # Note: This test may not work on Windows systems
-        with patch('os.path.exists') as mock_exists:
-            mock_exists.return_value = True
-            is_prod = SecretKeyManager.is_production_environment()
-            assert is_prod is True
+        # Clear CI environment variables to test filesystem detection in isolation
+        with patch.dict(os.environ, {}, clear=True):
+            with patch('os.path.exists') as mock_exists:
+                mock_exists.return_value = True
+                is_prod = SecretKeyManager.is_production_environment()
+                assert is_prod is True
 
     def test_case_insensitive_production_values(self):
         """Test that production values are case insensitive."""
