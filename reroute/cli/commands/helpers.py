@@ -246,6 +246,19 @@ def validate_path_realtime(text: str) -> bool:
         return False
     if '//' in text:
         return False
+
+    # Check for dangerous module names
+    dangerous_segments = {
+        '__import__', 'eval', 'exec', 'compile', 'open',
+        'file', 'input', 'raw_input', 'reload', '__builtins__',
+        'os', 'sys', 'subprocess', 'socket', 'threading',
+        'multiprocessing', 'asyncio'
+    }
+    path_segments = text.strip('/').split('/')
+    for segment in path_segments:
+        if segment.lower() in dangerous_segments:
+            return False
+
     return True
 
 
@@ -303,6 +316,20 @@ def validate_route_path(ctx, param, value):
     for segment in path_segments:
         if segment in reserved_python:
             raise click.BadParameter(f"Path cannot contain reserved Python name: {segment}")
+
+    # Check for dangerous module names that would be blocked at runtime
+    # These are Python built-in modules or dangerous functions that could be exploited
+    dangerous_segments = {
+        '__import__', 'eval', 'exec', 'compile', 'open',
+        'file', 'input', 'raw_input', 'reload', '__builtins__',
+        'os', 'sys', 'subprocess', 'socket', 'threading',
+        'multiprocessing', 'asyncio'
+    }
+    for segment in path_segments:
+        if segment.lower() in dangerous_segments:
+            raise click.BadParameter(
+                f"Path segment '{segment}' is a reserved Python module name"
+            )
 
     # Check for invalid filesystem characters (Windows compatibility)
     invalid_chars = '<>:"|?*'
