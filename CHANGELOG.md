@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.4] - 2026-01-03
 
+## [0.2.4] - 2026-01-03
+
 ### Fixed
 - **CRITICAL: CLI import error** - Fixed `ModuleNotFoundError: No module named 'reroute.cli.utils.security'` caused by `utils.py` file shadowing `utils/` package directory
 - Renamed `cli/utils.py` to `cli/cli_utils.py` to allow proper access to `cli/utils/` package
@@ -293,6 +295,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-01-03
+
 ## [0.2.3] - 2026-01-03
 
 ## [0.2.1] - 2025-12-10
@@ -503,3 +507,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.3...HEAD
 [0.2.3]: https://github.com/cbsajan/reroute/compare/v...v0.2.3
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/cbsajan/reroute/compare/v...v0.2.4
