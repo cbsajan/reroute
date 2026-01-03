@@ -11,7 +11,7 @@ Commands for database management:
 import click
 import sys
 from pathlib import Path
-from ..utils import progress_step, success_message, next_steps, handle_error, CLIError
+from ..cli_utils import progress_step, success_message, next_steps, handle_error, CLIError
 from ..utils.security import (
     run_alembic_command,
     validate_positive_integer,

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo-light.svg" alt="REROUTE Logo" width="200">
+  <img src="assets/logo-dark.svg" alt="REROUTE Logo" width="200">
   <h1>REROUTE</h1>
   <p><em>File-based routing for Python backends</em></p>
   <p><strong>Inspired by Next.js, powered by FastAPI/Flask</strong></p>

@@ -13,7 +13,7 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 
 setup(
     name="reroute",
-    version="0.2.3",
+    version="0.2.4",
     license="Apache-2.0",
     description="File-based routing for Python backend frameworks (FastAPI, Flask)",
     long_description=long_description,

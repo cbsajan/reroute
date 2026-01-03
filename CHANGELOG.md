@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-01-03
+
+### Fixed
+- **CRITICAL: CLI import error** - Fixed `ModuleNotFoundError: No module named 'reroute.cli.utils.security'` caused by `utils.py` file shadowing `utils/` package directory
+- Renamed `cli/utils.py` to `cli/cli_utils.py` to allow proper access to `cli/utils/` package
+- **CI environment detection** - GitHub Actions and other CI environments no longer incorrectly detected as production
+- **Python 3.8 compatibility** - Added `from __future__ import annotations` for type hint compatibility
+- **False positive security check** - Fixed security validation that blocked routes like `/posts` because "os" was found as substring; now uses exact segment matching
+- **CLI route validation** - Added dangerous module name validation during route creation via CLI (both command-line and interactive mode)
+- **Duplicate log messages** - Removed redundant "Could not load route" message from router.py since loader.py already logs it
+- **OpenAPI JSON_PATH validation** - App now exits with error if `JSON_PATH=None` when `OpenAPI.ENABLE=True` (required for Swagger/ReDoc)
+- **OpenAPI custom JSON_PATH** - Custom `JSON_PATH` values now work correctly in FastAPI (registers route at specified path)
+- **OpenAPI default route cleanup** - Default `/openapi.json`, `/docs`, `/redoc` routes are removed when custom paths are configured
+- **Route existence check** - CLI now checks if route exists immediately after path input, before asking for name
+
+### Added
+- **Flask JSON_PATH warning** - Shows warning when `JSON_PATH` is configured in Flask (not supported, auto-derived from `DOCS_PATH`)
+
+### Changed
+- Simplified security error messages (no verbose explanations)
+- Detailed security logs only shown when `VERBOSE_LOGGING = True`
+- Startup banner now displays Auto-Reload status for clarity
+- Route method selection now derives from `Config.Internal.SUPPORTED_HTTP_METHODS` (excluding head/options)
+
 ## [0.2.3] - 2026-01-03
 
 ### Fixed

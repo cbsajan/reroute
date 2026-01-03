@@ -532,10 +532,12 @@ class FastAPIAdapter:
         Respects None values for individual endpoints:
         - DOCS_PATH = None -> disables Swagger UI
         - REDOC_PATH = None -> disables ReDoc UI
-        - JSON_PATH = None -> disables OpenAPI JSON endpoint
+        - JSON_PATH = Required when OpenAPI.ENABLE=True (Swagger/ReDoc need it)
 
         Also sets API metadata (title, version, description) from config.
         """
+        import sys
+
         if hasattr(self.config, 'OpenAPI'):
             # Set docs URLs based on config
             if self.config.OpenAPI.ENABLE:
@@ -547,30 +549,52 @@ class FastAPIAdapter:
                 if hasattr(self.config.OpenAPI, 'DESCRIPTION') and self.config.OpenAPI.DESCRIPTION:
                     self.app.description = self.config.OpenAPI.DESCRIPTION
 
-                # Respect None values for individual endpoints
-                self.app.docs_url = self.config.OpenAPI.DOCS_PATH if self.config.OpenAPI.DOCS_PATH else None
-                self.app.redoc_url = self.config.OpenAPI.REDOC_PATH if self.config.OpenAPI.REDOC_PATH else None
-                self.app.openapi_url = self.config.OpenAPI.JSON_PATH if self.config.OpenAPI.JSON_PATH else None
+                # Get configured paths
+                docs_path = getattr(self.config.OpenAPI, 'DOCS_PATH', None)
+                redoc_path = getattr(self.config.OpenAPI, 'REDOC_PATH', None)
+                json_path = getattr(self.config.OpenAPI, 'JSON_PATH', '/openapi.json')
+
+                # JSON_PATH is REQUIRED when OpenAPI is enabled
+                if not json_path:
+                    print("[ERROR] OpenAPI.JSON_PATH is required when OpenAPI.ENABLE=True")
+                    sys.exit(1)
+
+                # Apply paths
+                self.app.docs_url = docs_path if docs_path else None
+                self.app.redoc_url = redoc_path if redoc_path else None
+                self.app.openapi_url = json_path
+
+                # Register custom OpenAPI JSON route if path differs from default
+                # FastAPI only registers /openapi.json during __init__
+                if json_path != "/openapi.json":
+                    @self.app.get(json_path, include_in_schema=False)
+                    async def custom_openapi():
+                        return self.app.openapi()
             else:
                 # Disable all docs if OpenAPI is disabled
                 self.app.docs_url = None
                 self.app.redoc_url = None
                 self.app.openapi_url = None
 
-            # Remove routes for disabled endpoints
-            # FastAPI may have already registered routes with default URLs
+            # Remove default routes that are disabled or replaced with custom paths
+            # FastAPI registers routes at default URLs during __init__
             routes_to_remove = []
             for route in self.app.routes:
                 if hasattr(route, 'path'):
-                    # Check if this is a docs route that should be disabled
-                    if self.app.docs_url is None and route.path in ['/docs', '/docs/oauth2-redirect']:
-                        routes_to_remove.append(route)
-                    elif self.app.redoc_url is None and route.path == '/redoc':
-                        routes_to_remove.append(route)
-                    elif self.app.openapi_url is None and route.path == '/openapi.json':
-                        routes_to_remove.append(route)
+                    # Remove /docs if disabled or using custom path
+                    if route.path in ['/docs', '/docs/oauth2-redirect']:
+                        if self.app.docs_url is None or self.app.docs_url != '/docs':
+                            routes_to_remove.append(route)
+                    # Remove /redoc if disabled or using custom path
+                    elif route.path == '/redoc':
+                        if self.app.redoc_url is None or self.app.redoc_url != '/redoc':
+                            routes_to_remove.append(route)
+                    # Remove /openapi.json if disabled or using custom path
+                    elif route.path == '/openapi.json':
+                        if self.app.openapi_url is None or self.app.openapi_url != '/openapi.json':
+                            routes_to_remove.append(route)
 
-            # Remove disabled routes
+            # Remove disabled/replaced routes
             for route in routes_to_remove:
                 self.app.routes.remove(route)
 
@@ -685,11 +709,21 @@ class FastAPIAdapter:
             )
 
         from reroute.utils import ensure_port_available
+        import os
 
         # Get configuration defaults (can be overridden by uvicorn_kwargs)
         HOST = getattr(self.config, 'HOST', '0.0.0.0')
         PORT = getattr(self.config, 'PORT', 8000)
         RELOAD = getattr(self.config, 'AUTO_RELOAD', False)
+
+        # Debug: Log AUTO_RELOAD source when VERBOSE_LOGGING is enabled
+        verbose = getattr(self.config, 'VERBOSE_LOGGING', False)
+        env_reload = os.environ.get('REROUTE_AUTO_RELOAD')
+        if verbose:
+            if env_reload is not None:
+                print(f"[DEBUG] AUTO_RELOAD={RELOAD} (from env: REROUTE_AUTO_RELOAD='{env_reload}')")
+            else:
+                print(f"[DEBUG] AUTO_RELOAD={RELOAD} (from config)")
 
         # Merge uvicorn arguments (kwargs override config)
         uvicorn_config = {
@@ -732,6 +766,7 @@ class FastAPIAdapter:
                 print("API Docs: Disabled (all paths set to None)")
 
         print(f"Health Check: http://localhost:{final_port}/health")
+        print(f"Auto-Reload:  {'Enabled' if final_reload else 'Disabled'}")
         print("\n")
 
         # When reload is enabled, uvicorn requires an import string instead of app object
@@ -747,7 +782,6 @@ class FastAPIAdapter:
 
             if caller_module and hasattr(caller_module, '__file__') and caller_module.__file__:
                 # Extract module name from file path
-                import os
                 module_file = os.path.abspath(caller_module.__file__)
                 module_name = os.path.basename(module_file).replace('.py', '')
 

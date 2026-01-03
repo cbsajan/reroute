@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from .helpers import validate_project_name
-from ..utils import progress_step, success_message, next_steps, handle_error, CLIError
+from ..cli_utils import progress_step, success_message, next_steps, handle_error, CLIError
 
 # Setup Jinja2 environment
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"

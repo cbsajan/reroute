@@ -78,8 +78,10 @@ class RouteLoader:
             module_name = str(relative_path).replace('\\', '.').replace('/', '.')[:-3]  # Remove .py extension
 
             # Security: Validate module name for safe import
-            if not self._is_safe_module_name(module_name):
-                raise ValueError(f"Unsafe module name: {module_name}")
+            unsafe_segment = self._get_unsafe_segment(module_name)
+            if unsafe_segment:
+                logger.warning(f"Skipped route: '{unsafe_segment}' is a reserved name")
+                return None
 
             # Create module spec with unique name
             spec = importlib.util.spec_from_file_location(
@@ -419,6 +421,24 @@ class RouteLoader:
             logger.warning(f"File permission check failed for {file_path}: {e}")
             return False
 
+    def _get_unsafe_segment(self, module_name: str) -> str:
+        """
+        Check if module name contains unsafe segments.
+
+        Returns:
+            The unsafe segment name if found, None if safe
+        """
+        dangerous_segments = {
+            '__import__', 'eval', 'exec', 'compile', 'open',
+            'file', 'input', 'raw_input', 'reload', '__builtins__',
+            'os', 'sys', 'subprocess', 'socket', 'threading',
+            'multiprocessing', 'asyncio'
+        }
+        for segment in module_name.lower().split('.'):
+            if segment in dangerous_segments:
+                return segment
+        return None
+
     def _is_safe_module_name(self, module_name: str) -> bool:
         """
         Validate that a module name is safe for import.
@@ -435,18 +455,27 @@ class RouteLoader:
                 logger.warning(f"Unsafe characters in module name: {module_name}")
                 return False
 
-            # Security: Check for dangerous patterns
-            dangerous_patterns = [
-                '..', '__import__', 'eval', 'exec', 'compile', 'open',
+            # Security: Check for dangerous patterns as complete segments
+            # Split by '.' to check each module segment individually
+            module_segments = set(module_name.lower().split('.'))
+
+            # Patterns that should be blocked as exact segment matches
+            dangerous_segment_patterns = {
+                '__import__', 'eval', 'exec', 'compile', 'open',
                 'file', 'input', 'raw_input', 'reload', '__builtins__',
                 'os', 'sys', 'subprocess', 'socket', 'threading',
                 'multiprocessing', 'asyncio'
-            ]
+            }
 
-            for pattern in dangerous_patterns:
-                if pattern in module_name.lower():
-                    logger.warning(f"Dangerous pattern in module name: {pattern} in {module_name}")
-                    return False
+            # Check for exact segment matches (not substrings)
+            matched_patterns = module_segments & dangerous_segment_patterns
+            if matched_patterns:
+                return False
+
+            # Check for '..' (path traversal) as substring - this should always be blocked
+            if '..' in module_name:
+                logger.warning(f"Path traversal pattern in module name: {module_name}")
+                return False
 
             # Security: Check length limits
             if len(module_name) > 255:
@@ -494,12 +523,21 @@ class RouteLoader:
     def _log_security_event(self, event_type: str, path: str, details: str = ""):
         """
         Log security-related events for monitoring and alerting.
+        Only logs when VERBOSE_LOGGING is enabled.
 
         Args:
             event_type: Type of security event
             path: Path involved in the event
             details: Additional details about the event
         """
+        # Only log detailed security events when verbose logging is enabled
+        try:
+            from reroute.config import Config
+            if not getattr(Config, 'VERBOSE_LOGGING', False):
+                return
+        except ImportError:
+            pass
+
         try:
             # Try to use the centralized security logger
             from reroute.logging import security_logger

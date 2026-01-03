@@ -7,7 +7,7 @@ Provides rollback functionality for CLI operations.
 import click
 from pathlib import Path
 from ..history import get_history, OperationTracker, CLIError
-from ..utils import progress_step, success_message, next_steps
+from ..cli_utils import progress_step, success_message, next_steps
 
 
 @click.command()

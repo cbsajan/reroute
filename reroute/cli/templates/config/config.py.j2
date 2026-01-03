@@ -35,9 +35,9 @@ class AppConfig(Config):
         ENABLE = True  # Enable OpenAPI documentation
 
         # Documentation Endpoints
-        DOCS_PATH = "/docs"            # Swagger UI endpoint (the path + /swagger (eg. /docs/swagger))
+        DOCS_PATH = "/docs"            # Swagger UI endpoint (set to None to disable)
         REDOC_PATH = None              # ReDoc disabled by default
-        JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
+        JSON_PATH = "/openapi.json"    # Required when ENABLE=True
 
         # API Metadata
         TITLE = "{{ project_name }}"  # API title
