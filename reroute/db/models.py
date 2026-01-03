@@ -107,6 +107,10 @@ class Model(Base):
         # Store original for logging purposes
         original_order_by = order_by.strip()
 
+        # Check for whitespace-only strings
+        if not original_order_by:
+            raise ValueError("order_by parameter must be a non-empty string")
+
         # Normalize the input for validation (but keep original for validation)
         normalized = original_order_by.lower()
 
@@ -142,13 +146,18 @@ class Model(Base):
         if ' ' in original_order_by:
             # If it contains spaces, check if it follows the "column direction" pattern
             parts = original_order_by.split()
-            if len(parts) == 2 and parts[1].lower() in ('asc', 'desc'):
-                # This is valid: "column asc" or "column desc"
-                column = parts[0].strip()
-                direction_input = parts[1].strip().lower()
+            if len(parts) == 2:
+                # Check if direction is valid
+                if parts[1].lower() in ('asc', 'desc'):
+                    # This is valid: "column asc" or "column desc"
+                    column = parts[0].strip()
+                    direction_input = parts[1].strip().lower()
+                else:
+                    # Invalid direction
+                    raise ValueError("Direction must be 'asc' or 'desc'")
             else:
-                # Invalid format - either too many parts or invalid direction
-                raise SecurityValidationError("Invalid column name format")
+                # Too many parts - invalid format
+                raise ValueError("order_by format should be 'column' or 'column direction'")
         else:
             # No spaces, treat entire string as column name
             column = original_order_by

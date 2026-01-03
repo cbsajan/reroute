@@ -171,7 +171,8 @@ class TestCommandInjectionPrevention:
         result = runner.invoke(db, ['downgrade', '--steps', '-1'])
 
         assert result.exit_code != 0
-        assert "Steps must be a positive integer" in result.output
+        # Check for the actual error message from validate_positive_integer
+        assert "steps must be a positive integer" in result.output.lower()
 
     def test_zero_steps_rejected(self):
         """Test that zero steps are rejected"""
@@ -182,7 +183,8 @@ class TestCommandInjectionPrevention:
         result = runner.invoke(db, ['downgrade', '--steps', '0'])
 
         assert result.exit_code != 0
-        assert "Steps must be a positive integer" in result.output
+        # Check for the actual error message from validate_positive_integer
+        assert "steps must be a positive integer" in result.output.lower()
 
     def test_non_integer_steps_rejected(self):
         """Test that non-integer values are rejected"""

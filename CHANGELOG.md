@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-01-03
+
+### Fixed
+- **SecurityHeadersConfig attribute error** - Fixed `hsts.max_age` access to use flat attribute `hsts_max_age` in FastAPI and Flask adapters
+- **security_logger undefined** - Fixed missing import in `cli/utils/security.py` by using `log_security_event()` function
+- **CSP methods don't exist** - Fixed non-existent `add_default_src()`, `add_script_src()` methods to use `get_directive().add_source()` pattern
+- **Path containment security bug** - Fixed RouteLoader path validation that incorrectly allowed files on same device; now properly checks parent ancestry
+- **Test assertion failures** - Fixed validation error message mismatches and incorrect mock patch paths for security_logger
+- **Testing environment permissions** - Fixed RouteLoader to allow temp directories in testing environment (like development)
+
+### Changed
+- Improved path security with proper ancestry checking instead of device-based validation
+- Enhanced error messages for validation failures to be more descriptive
+
+## [0.2.2] - 2026-01-02
+
+### Added
+- Security headers middleware with OWASP-compliant defaults
+- Content Security Policy (CSP) configuration
+- HSTS, X-Frame-Options, X-Content-Type-Options support
+- Environment-aware security (development vs production)
+
+## [0.2.1] - 2025-12-10
+
+## [0.2.0] - 2025-12-06
+
+## [0.1.9] - 2025-12-06
+
+## [0.1.8] - 2025-11-28
+
+## [0.1.7] - 2025-11-24
+
+## [0.1.6] - 2025-11-23
+
+## [0.1.5] - 2025-11-23
+
+## [0.1.4] - 2025-11-21
+
 ## [0.1.4] - 2025-11-21
 
 ### Added
@@ -229,6 +267,22 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-10
+
+## [0.2.0] - 2025-12-06
+
+## [0.1.9] - 2025-12-06
+
+## [0.1.8] - 2025-11-28
+
+## [0.1.7] - 2025-11-24
+
+## [0.1.6] - 2025-11-23
+
+## [0.1.5] - 2025-11-23
+
+## [0.1.4] - 2025-11-21
+
 ## [0.1.3] - 2025-11-21
 
 ## [0.1.2] - 2025-11-20
@@ -394,3 +448,27 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.3...HEAD
 [0.1.3]: https://github.com/cbsajan/reroute/compare/v...v0.1.3
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/cbsajan/reroute/compare/v...v0.1.4
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/cbsajan/reroute/compare/v...v0.1.5
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/cbsajan/reroute/compare/v...v0.1.6
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/cbsajan/reroute/compare/v...v0.1.7
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/cbsajan/reroute/compare/v...v0.1.8
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/cbsajan/reroute/compare/v...v0.1.9
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/cbsajan/reroute/compare/v...v0.2.0
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/cbsajan/reroute/compare/v...v0.2.1
