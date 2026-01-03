@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.3] - 2026-01-03
 
+## [0.2.3] - 2026-01-03
+
 ### Fixed
 - **SecurityHeadersConfig attribute error** - Fixed `hsts.max_age` access to use flat attribute `hsts_max_age` in FastAPI and Flask adapters
 - **security_logger undefined** - Fixed missing import in `cli/utils/security.py` by using `log_security_event()` function
@@ -291,6 +293,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-01-03
+
 ## [0.2.1] - 2025-12-10
 
 ## [0.2.0] - 2025-12-06
@@ -496,3 +500,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/cbsajan/reroute/compare/v...v0.2.1
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/cbsajan/reroute/compare/v...v0.2.3
