@@ -63,7 +63,23 @@ class TestEnvironmentDetection:
 
     def test_detect_development_environment(self):
         """Test detection in development environment."""
+        # Mock filesystem to simulate non-production (no /proc/1/cgroup, etc.)
         with patch.dict(os.environ, {}, clear=True):
+            with patch('os.path.exists', return_value=False):
+                is_prod = SecretKeyManager.is_production_environment()
+                assert is_prod is False
+
+    @pytest.mark.parametrize("ci_env_var", [
+        'CI',
+        'GITHUB_ACTIONS',
+        'TRAVIS',
+        'GITLAB_CI',
+        'CIRCLECI',
+    ])
+    def test_ci_environment_not_detected_as_production(self, ci_env_var):
+        """Test that CI environments are NOT detected as production."""
+        # Even if production indicators are present, CI should override
+        with patch.dict(os.environ, {ci_env_var: 'true', 'ENV': 'production'}, clear=True):
             is_prod = SecretKeyManager.is_production_environment()
             assert is_prod is False
 
@@ -100,10 +116,12 @@ class TestEnvironmentDetection:
     def test_filesystem_indicators_not_windows(self):
         """Test production detection via filesystem indicators (non-Windows)."""
         # Note: This test may not work on Windows systems
-        with patch('os.path.exists') as mock_exists:
-            mock_exists.return_value = True
-            is_prod = SecretKeyManager.is_production_environment()
-            assert is_prod is True
+        # Clear CI environment variables to test filesystem detection in isolation
+        with patch.dict(os.environ, {}, clear=True):
+            with patch('os.path.exists') as mock_exists:
+                mock_exists.return_value = True
+                is_prod = SecretKeyManager.is_production_environment()
+                assert is_prod is True
 
     def test_case_insensitive_production_values(self):
         """Test that production values are case insensitive."""
@@ -257,18 +275,22 @@ class TestConfigIntegration:
 
     def test_config_secret_key_validation_development(self):
         """Test secret key validation in development."""
+        # Mock filesystem to simulate non-production (no /proc/1/cgroup on Linux)
         with patch.dict(os.environ, {'ENV': 'development'}, clear=True):
-            # Should work fine and generate a secure key
-            Config.load_from_env()
-            assert len(Config.SECRET_KEY) >= SecretKeyManager.MIN_KEY_LENGTH
+            with patch('os.path.exists', return_value=False):
+                # Should work fine and generate a secure key
+                Config.load_from_env()
+                assert len(Config.SECRET_KEY) >= SecretKeyManager.MIN_KEY_LENGTH
 
     def test_config_with_env_override(self):
         """Test config with environment variable override."""
         strong_key = SecretKeyManager.generate_secure_key()
 
+        # Mock filesystem to avoid production detection on Linux
         with patch.dict(os.environ, {'REROUTE_SECRET_KEY': strong_key}, clear=True):
-            Config.load_from_env()
-            assert Config.SECRET_KEY == strong_key
+            with patch('os.path.exists', return_value=False):
+                Config.load_from_env()
+                assert Config.SECRET_KEY == strong_key
 
     def test_config_validate_method(self):
         """Test that validate method also triggers secret key validation."""

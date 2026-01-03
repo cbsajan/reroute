@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 # Security logger for security events
-from .logging_config import log_security_event
+from .logging_config import log_security_event, get_security_logger
 
 
 class SecureSubprocessError(Exception):
@@ -66,7 +66,7 @@ def get_command_path(command_name: str) -> str:
             )
 
         # Log the command resolution for security auditing
-        security_logger.info(f"Command resolved: {command_name} -> {command_path}")
+        log_security_event("COMMAND_RESOLVED", f"{command_name} -> {command_path}", "INFO")
 
         return command_path
 
@@ -183,25 +183,8 @@ def validate_filename(filename: str) -> str:
     return filename
 
 
-def log_security_event(event_type: str, details: str, severity: str = "WARNING"):
-    """
-    Log security events for monitoring and incident response.
-
-    Args:
-        event_type: Type of security event
-        details: Event details
-        severity: Event severity (INFO, WARNING, ERROR, CRITICAL)
-    """
-    message = f"[SECURITY] {event_type}: {details}"
-
-    if severity == "CRITICAL":
-        security_logger.critical(message)
-    elif severity == "ERROR":
-        security_logger.error(message)
-    elif severity == "WARNING":
-        security_logger.warning(message)
-    else:
-        security_logger.info(message)
+# Note: log_security_event is imported from .logging_config
+# This provides centralized security event logging
 
 
 def run_secure_command(command_args: List[str],

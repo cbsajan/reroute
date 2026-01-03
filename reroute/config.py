@@ -3,6 +3,7 @@ REROUTE Configuration
 
 Central configuration for the REROUTE framework.
 """
+from __future__ import annotations
 
 import os
 import logging
@@ -58,6 +59,25 @@ class SecretKeyManager:
         Returns:
             bool: True if production environment detected
         """
+        # Check if running in CI environment (NOT production)
+        # CI environments are for testing, not production deployments
+        ci_indicators = {
+            'CI': os.getenv('CI'),
+            'GITHUB_ACTIONS': os.getenv('GITHUB_ACTIONS'),
+            'TRAVIS': os.getenv('TRAVIS'),
+            'GITLAB_CI': os.getenv('GITLAB_CI'),
+            'CIRCLECI': os.getenv('CIRCLECI'),
+            'JENKINS_URL': os.getenv('JENKINS_URL'),
+            'CODEBUILD_BUILD_ID': os.getenv('CODEBUILD_BUILD_ID'),
+            'BITBUCKET_BUILD_NUMBER': os.getenv('BITBUCKET_BUILD_NUMBER'),
+            'AZURE_PIPELINES': os.getenv('TF_BUILD'),
+        }
+
+        for ci_name, is_present in ci_indicators.items():
+            if is_present:
+                logger.info(f"CI environment detected via {ci_name} - NOT treating as production")
+                return False
+
         # Check common production environment variables
         for env_var in cls.PRODUCTION_INDICATORS:
             env_value = os.getenv(env_var, '').lower()

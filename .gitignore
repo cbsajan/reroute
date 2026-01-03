@@ -90,3 +90,6 @@ Thumbs.db
 *.log
 logs/
 /update_version.bat
+
+# Personal developer documentation (not for GitHub)
+docs/developer/

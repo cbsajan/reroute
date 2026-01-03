@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-01-03
+
+### Fixed
+- **SecurityHeadersConfig attribute error** - Fixed `hsts.max_age` access to use flat attribute `hsts_max_age` in FastAPI and Flask adapters
+- **security_logger undefined** - Fixed missing import in `cli/utils/security.py` by using `log_security_event()` function
+- **CSP methods don't exist** - Fixed non-existent `add_default_src()`, `add_script_src()` methods to use `get_directive().add_source()` pattern
+- **Path containment security bug** - Fixed RouteLoader path validation that incorrectly allowed files on same device; now properly checks parent ancestry
+- **Test assertion failures** - Fixed validation error message mismatches and incorrect mock patch paths for security_logger
+- **Testing environment permissions** - Fixed RouteLoader to allow temp directories in testing environment (like development)
+
+### Changed
+- Improved path security with proper ancestry checking instead of device-based validation
+- Enhanced error messages for validation failures to be more descriptive
+
+## [0.2.2] - 2026-01-02
+
+### Added
+- Security headers middleware with OWASP-compliant defaults
+- Content Security Policy (CSP) configuration
+- HSTS, X-Frame-Options, X-Content-Type-Options support
+- Environment-aware security (development vs production)
+
 ## [0.2.1] - 2025-12-10
 
 ## [0.2.0] - 2025-12-06

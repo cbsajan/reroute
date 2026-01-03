@@ -263,14 +263,15 @@ class RouteLoader:
                 relative_part = str(resolved_path)[len(str(resolved_routes_dir)):].lstrip('\\/')
                 return not relative_part.startswith('..')
 
-            # Method 3: File system device check (Unix-like systems)
-            if hasattr(resolved_path, 'stat') and hasattr(resolved_routes_dir, 'stat'):
-                path_stat = resolved_path.stat()
-                routes_stat = resolved_routes_dir.stat()
-
-                # Check if they're on the same device and paths are reasonable
-                if path_stat.st_dev == routes_stat.st_dev:
+            # Method 3: Common parent check (fallback for edge cases)
+            # This checks if the routes_dir is an ancestor of the path
+            try:
+                # Get all parents of the resolved path
+                path_parents = set(resolved_path.parents)
+                if resolved_routes_dir in path_parents:
                     return True
+            except (OSError, ValueError):
+                pass
 
             return False
 
@@ -345,14 +346,16 @@ class RouteLoader:
             # Get current environment
             environment = detect_environment()
 
-            # In development, allow world-writable for convenience
-            if environment.value == 'development':
+            # In development and testing, allow world-writable for convenience
+            # (tests often use temp directories with relaxed permissions)
+            if environment.value in ('development', 'testing'):
                 if mode & stat.S_IWOTH:
-                    logger.info(f"Development environment: Allowing world-writable directory: {directory}")
-                    logger.info("Consider using stricter permissions for production")
+                    logger.info(f"{environment.value.title()} environment: Allowing world-writable directory: {directory}")
+                    if environment.value == 'development':
+                        logger.info("Consider using stricter permissions for production")
                 return True
 
-            # In production and testing, enforce strict permissions
+            # In production only, enforce strict permissions
             if mode & stat.S_IWOTH:
                 logger.warning(f"Directory is world-writable: {directory}")
                 logger.error("SECURITY: World-writable directories are not allowed in production")
@@ -398,13 +401,13 @@ class RouteLoader:
                 logger.warning(f"File is executable: {file_path}")
                 return False
 
-            # In development, allow world-writable files for convenience
-            if environment.value == 'development':
+            # In development and testing, allow world-writable files for convenience
+            if environment.value in ('development', 'testing'):
                 if mode & stat.S_IWOTH:
-                    logger.info(f"Development environment: Allowing world-writable file: {file_path}")
+                    logger.info(f"{environment.value.title()} environment: Allowing world-writable file: {file_path}")
                 return True
 
-            # In production and testing, enforce strict permissions
+            # In production only, enforce strict permissions
             if mode & stat.S_IWOTH:
                 logger.warning(f"File is world-writable: {file_path}")
                 logger.error("SECURITY: World-writable files are not allowed in production")

@@ -137,27 +137,28 @@ class FastAPIAdapter:
                 security_config.csp = None
 
         if hasattr(self.config, 'SECURITY_HSTS_MAX_AGE'):
-            if security_config.hsts:
-                security_config.hsts.max_age = self.config.SECURITY_HSTS_MAX_AGE
+            security_config.hsts_max_age = self.config.SECURITY_HSTS_MAX_AGE
 
         if hasattr(self.config, 'SECURITY_X_FRAME_OPTIONS'):
-            if security_config.x_frame_options:
-                security_config.x_frame_options.option = self.config.SECURITY_X_FRAME_OPTIONS
+            security_config.x_frame_options = self.config.SECURITY_X_FRAME_OPTIONS
 
         # Add CDN domains if configured
         if hasattr(self.config, 'SECURITY_CDN_DOMAINS') and self.config.SECURITY_CDN_DOMAINS:
             if security_config.csp:
                 for domain in self.config.SECURITY_CDN_DOMAINS:
-                    security_config.csp.add_default_src(domain)
-                    security_config.csp.add_script_src(domain)
-                    security_config.csp.add_style_src(domain)
-                    security_config.csp.add_img_src(domain)
+                    # Add to relevant CSP directives using get_directive + add_source
+                    for directive_name in ['default-src', 'script-src', 'style-src', 'img-src']:
+                        directive = security_config.csp.get_directive(directive_name)
+                        if directive:
+                            directive.add_source(domain)
 
         # Add API domains if configured
         if hasattr(self.config, 'SECURITY_API_DOMAINS') and self.config.SECURITY_API_DOMAINS:
             if security_config.csp:
                 for domain in self.config.SECURITY_API_DOMAINS:
-                    security_config.csp.add_connect_src(domain)
+                    connect_src = security_config.csp.get_directive('connect-src')
+                    if connect_src:
+                        connect_src.add_source(domain)
 
         # Apply the comprehensive security middleware
         self.app.add_middleware(SecurityHeadersMiddleware, security_config=security_config)
