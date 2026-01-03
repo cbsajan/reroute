@@ -18,7 +18,7 @@ from reroute.cli.commands.create_command import generate, create
 from reroute.cli.commands import undo_command
 from reroute.cli.commands.helpers import is_reroute_project
 from reroute.cli.update_checker import check_for_updates
-from reroute.cli.utils import CLIError, handle_error
+from reroute.cli.cli_utils import CLIError, handle_error
 from reroute.cli.utils.logging_config import setup_security_logging
 
 

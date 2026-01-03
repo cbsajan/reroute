@@ -153,6 +153,12 @@ class FlaskAdapter:
                     # Default fallback
                     base_path = 'apidoc'
 
+                # Warn if JSON_PATH is configured (Flask/Spectree derives it from DOCS_PATH)
+                json_path = getattr(self.config.OpenAPI, 'JSON_PATH', None)
+                if json_path:
+                    click.secho(f"[WARNING] OpenAPI.JSON_PATH is ignored in Flask adapter", fg='yellow')
+                    click.secho(f"          JSON spec is auto-generated at: /{base_path}/openapi.json", fg='yellow')
+
                 # Fix Spectree template bug: Spectree registers route as //openapi.json when path=''
                 # This causes browser to treat it as protocol-relative URL (breaks)
                 # Solution: Use window.location.origin + cleaned spec_url

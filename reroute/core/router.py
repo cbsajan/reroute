@@ -122,7 +122,6 @@ class Router:
             module = self.loader.load_module(page_file)
 
             if module is None:
-                logger.warning(f"Could not load route {route_path}")
                 continue
 
             # Extract HTTP method handlers from the module

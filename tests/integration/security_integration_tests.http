@@ -1,0 +1,434 @@
+###
+# REROUTE Security Integration Tests
+#
+# This file contains HTTP tests for security features.
+# Use with REST Client extension in VS Code or similar tools.
+#
+# Prerequisites:
+# 1. Install dependencies: pip install reroute[security]
+# 2. Start a test server with security endpoints
+# 3. Set baseUrl variable to match your server
+###
+
+@baseUrl = http://localhost:8000
+@contentType = application/json
+
+###############################################################################
+# Password Hashing Tests
+###############################################################################
+
+### Test: Hash password
+# Expected: 200 OK with Argon2 hash
+POST {{baseUrl}}/auth/hash-password
+Content-Type: {{contentType}}
+
+{
+  "password": "my_secure_password"
+}
+
+### Test: Verify password (correct)
+# Expected: 200 OK with verification result
+POST {{baseUrl}}/auth/verify-password
+Content-Type: {{contentType}}
+
+{
+  "password": "my_secure_password",
+  "hash": "$argon2id$v=19$m=65536,t=3,p=4$..."
+}
+
+### Test: Verify password (incorrect)
+# Expected: 401 Unauthorized
+POST {{baseUrl}}/auth/verify-password
+Content-Type: {{contentType}}
+
+{
+  "password": "wrong_password",
+  "hash": "$argon2id$v=19$m=65536,t=3,p=4$..."
+}
+
+###############################################################################
+# JWT Token Tests
+###############################################################################
+
+### Test: Generate JWT token
+# Expected: 200 OK with JWT token
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "user@example.com",
+  "password": "my_secure_password"
+}
+
+### Test: Verify JWT token
+# Expected: 200 OK with decoded payload
+GET {{baseUrl}}/auth/verify
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### Test: Access protected endpoint without token
+# Expected: 401 Unauthorized
+GET {{baseUrl}}/auth/protected
+
+### Test: Access protected endpoint with invalid token
+# Expected: 401 Unauthorized
+GET {{baseUrl}}/auth/protected
+Authorization: Bearer invalid_token
+
+###############################################################################
+# Email Validation Tests
+###############################################################################
+
+### Test: Validate valid email
+# Expected: 200 OK with validation result
+POST {{baseUrl}}/users/validate-email
+Content-Type: {{contentType}}
+
+{
+  "email": "user@example.com"
+}
+
+### Test: Validate invalid email
+# Expected: 400 Bad Request with validation errors
+POST {{baseUrl}}/users/validate-email
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email"
+}
+
+### Test: Create user with valid email
+# Expected: 201 Created
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "name": "Test User"
+}
+
+### Test: Create user with invalid email
+# Expected: 400 Bad Request
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "email": "not-an-email",
+  "password": "SecurePass123!",
+  "name": "Test User"
+}
+
+###############################################################################
+# URL Validation Tests
+###############################################################################
+
+### Test: Validate URL with allowed scheme
+# Expected: 200 OK
+POST {{baseUrl}}/links/validate
+Content-Type: {{contentType}}
+
+{
+  "url": "https://example.com"
+}
+
+### Test: Validate URL with blocked scheme
+# Expected: 400 Bad Request
+POST {{baseUrl}}/links/validate
+Content-Type: {{contentType}}
+
+{
+  "url": "javascript:alert('XSS')"
+}
+
+### Test: Validate URL with path traversal
+# Expected: 400 Bad Request
+POST {{baseUrl}}/links/validate
+Content-Type: {{contentType}}
+
+{
+  "url": "https://example.com/../../../etc/passwd"
+}
+
+###############################################################################
+# HTML Sanitization Tests
+###############################################################################
+
+### Test: Create post with safe HTML
+# Expected: 201 Created
+POST {{baseUrl}}/posts
+Content-Type: {{contentType}}
+
+{
+  "title": "Test Post",
+  "content": "<p>Safe content with <b>bold</b> text.</p>"
+}
+
+### Test: Create post with XSS attempt
+# Expected: 201 Created (sanitized)
+POST {{baseUrl}}/posts
+Content-Type: {{contentType}}
+
+{
+  "title": "XSS Attempt",
+  "content": "<script>alert('XSS')</script><p>Safe content</p>"
+}
+
+### Test: Create post with img onerror
+# Expected: 201 Created (sanitized)
+POST {{baseUrl}}/posts
+Content-Type: {{contentType}}
+
+{
+  "title": "Img XSS",
+  "content": "<img src=x onerror=alert('XSS')><p>Content</p>"
+}
+
+###############################################################################
+# Password Strength Tests
+###############################################################################
+
+### Test: Check weak password
+# Expected: 200 OK with weak score
+POST {{baseUrl}}/auth/check-password-strength
+Content-Type: {{contentType}}
+
+{
+  "password": "password"
+}
+
+### Test: Check strong password
+# Expected: 200 OK with strong score
+POST {{baseUrl}}/auth/check-password-strength
+Content-Type: {{contentType}}
+
+{
+  "password": "MyP@ssw0rd2024!"
+}
+
+### Test: Check common password
+# Expected: 200 OK with warnings
+POST {{baseUrl}}/auth/check-password-strength
+Content-Type: {{contentType}}
+
+{
+  "password": "123456"
+}
+
+###############################################################################
+# Filename Sanitization Tests
+###############################################################################
+
+### Test: Upload file with safe filename
+# Expected: 200 OK
+POST {{baseUrl}}/files/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="safe_file.txt"
+Content-Type: text/plain
+
+File content
+------WebKitFormBoundary--
+
+### Test: Upload file with path traversal
+# Expected: 400 Bad Request or sanitized filename
+POST {{baseUrl}}/files/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="../../../etc/passwd"
+Content-Type: text/plain
+
+File content
+------WebKitFormBoundary--
+
+### Test: Upload file with script in name
+# Expected: 200 OK with sanitized filename
+POST {{baseUrl}}/files/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="file<script>.txt"
+Content-Type: text/plain
+
+File content
+------WebKitFormBoundary--
+
+###############################################################################
+# API Key Tests
+###############################################################################
+
+### Test: Generate API key
+# Expected: 200 OK with API key
+POST {{baseUrl}}/api-keys/generate
+Content-Type: {{contentType}}
+
+{
+  "name": "My API Key",
+  "scopes": ["read", "write"]
+}
+
+### Test: Access endpoint with API key
+# Expected: 200 OK
+GET {{baseUrl}}/api/data
+X-API-Key: ruk_Xb5Gh8Km3Pq...
+
+### Test: Access endpoint with invalid API key
+# Expected: 401 Unauthorized or 403 Forbidden
+GET {{baseUrl}}/api/data
+X-API-Key: invalid_key
+
+###############################################################################
+# Token Generation Tests
+###############################################################################
+
+### Test: Generate reset token
+# Expected: 200 OK with reset token
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: {{contentType}}
+
+{
+  "email": "user@example.com"
+}
+
+### Test: Reset password with token
+# Expected: 200 OK
+POST {{baseUrl}}/auth/reset-password
+Content-Type: {{contentType}}
+
+{
+  "token": "Xb5Gh8Km3Pq...",
+  "new_password": "NewSecurePass123!"
+}
+
+### Test: Reset password with expired token
+# Expected: 400 Bad Request
+POST {{baseUrl}}/auth/reset-password
+Content-Type: {{contentType}}
+
+{
+  "token": "expired_token",
+  "new_password": "NewSecurePass123!"
+}
+
+###############################################################################
+# Security Headers Tests
+###############################################################################
+
+### Test: Check security headers
+# Expected: 200 OK with security headers
+GET {{baseUrl}}/
+
+### Test: Check CORS headers
+# Expected: 200 OK with CORS headers
+OPTIONS {{baseUrl}}/api/data
+Access-Control-Request-Method: GET
+Origin: https://example.com
+
+###############################################################################
+# Rate Limiting Tests
+###############################################################################
+
+### Test: Normal request
+# Expected: 200 OK
+GET {{baseUrl}}/api/data
+
+### Test: Rate limit exceeded
+# Expected: 429 Too Many Requests (after many rapid requests)
+GET {{baseUrl}}/api/data
+
+###############################################################################
+# Session Management Tests
+###############################################################################
+
+### Test: Create session
+# Expected: 200 OK with session cookie
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "user@example.com",
+  "password": "my_secure_password"
+}
+
+### Test: Access session-protected endpoint
+# Expected: 200 OK
+GET {{baseUrl}}/auth/session
+Cookie: session_id=Xb5Gh8Km3Pq...
+
+### Test: Logout (destroy session)
+# Expected: 200 OK
+POST {{baseUrl}}/auth/logout
+Cookie: session_id=Xb5Gh8Km3Pq...
+
+###############################################################################
+# Comprehensive Security Scenarios
+###############################################################################
+
+### Scenario 1: Complete user registration flow
+# Step 1: Validate email
+POST {{baseUrl}}/users/validate-email
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com"
+}
+
+### Step 2: Check password strength
+POST {{baseUrl}}/auth/check-password-strength
+Content-Type: {{contentType}}
+
+{
+  "password": "MySecurePass123!"
+}
+
+### Step 3: Create user
+POST {{baseUrl}}/users/register
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com",
+  "password": "MySecurePass123!",
+  "name": "New User"
+}
+
+### Step 4: Login and get token
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com",
+  "password": "MySecurePass123!"
+}
+
+### Step 5: Access protected resource
+GET {{baseUrl}}/users/profile
+Authorization: Bearer <token_from_step_4>
+
+### Scenario 2: XSS prevention
+# Step 1: Try to create malicious post
+POST {{baseUrl}}/posts
+Content-Type: {{contentType}}
+
+{
+  "title": "<script>alert('XSS')</script>",
+  "content": "<img src=x onerror=alert('XSS')><p>Content</p>"
+}
+
+### Step 2: Verify content is sanitized
+GET {{baseUrl}}/posts/<post_id_from_step_1>
+
+### Scenario 3: File upload security
+# Step 1: Attempt path traversal
+POST {{baseUrl}}/files/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="../../../etc/passwd"
+Content-Type: text/plain
+
+malicious content
+------WebKitFormBoundary--
+
+### Step 2: Verify filename is sanitized
+GET {{baseUrl}}/files/<file_id_from_step_1>

@@ -12,6 +12,7 @@ from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from .._template_loader import jinja_env, TEMPLATES_DIR
 from .helpers import is_reroute_project, create_route_directory, to_class_name, to_pascal_case, auto_name_from_path, check_class_name_duplicate, validate_route_path, validate_path_realtime
+from reroute.config import Config
 
 
 @click.group()
@@ -55,6 +56,10 @@ def generate_route(path, name, methods, http_test, dry_run):
     click.secho("Generating Route", fg='cyan', bold=True)
     click.secho("="*50 + "\n", fg='cyan', bold=True)
 
+    # Methods supported by route template (excludes head/options which are auto-handled by frameworks)
+    TEMPLATE_METHODS = [m.upper() for m in Config.Internal.SUPPORTED_HTTP_METHODS
+                        if m.lower() not in ('head', 'options')]
+
     try:
         # Validate we're in a REROUTE project
         if not is_reroute_project():
@@ -67,8 +72,19 @@ def generate_route(path, name, methods, http_test, dry_run):
             path = inquirer.text(
                 message="Route path (e.g., /users or /api/posts):",
                 validate=validate_path_realtime,
-                invalid_message="Path must start with / and not end with / (e.g., /user, /api/posts)"
+                invalid_message="Invalid path (must start with /, no reserved names like os/sys)"
             ).execute()
+
+        # Check if route already exists BEFORE asking for name
+        routes_dir = Path.cwd() / "app" / "routes"
+        route_path_clean = path.strip('/')
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
+        route_file = route_dir / "page.py"
+
+        if route_file.exists():
+            click.secho(f"[ERROR] Route already exists: {route_file}", fg='red', bold=True)
+            click.secho(f"Delete the existing route first or choose a different path.", fg='yellow')
+            sys.exit(1)
 
         # Auto-generate name from path if not provided
         if name is None:
@@ -112,31 +128,12 @@ def generate_route(path, name, methods, http_test, dry_run):
         class_name = to_class_name(name)
         resource_name = name.lower()
 
-        # Calculate route directory path (without creating it yet)
-        routes_dir = Path.cwd() / "app" / "routes"
-        route_path_clean = path.strip('/')
-        # Convert URL path segments to proper file system path
-        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
-        route_file = route_dir / "page.py"
-
-        # Check for duplicate class name
-        if check_class_name_duplicate(class_name, route_dir):
-            click.secho(f"\n[ERROR] Class '{class_name}' already exists in {route_file}!", fg='red', bold=True)
-            click.secho(f"Choose a different name or delete the existing route first.", fg='yellow')
-            sys.exit(1)
-
         # Parse methods - use interactive checkbox if not provided
         if methods is None:
-            # Interactive method selection
+            choices = [Choice(m, enabled=(m in ['GET', 'POST'])) for m in TEMPLATE_METHODS]
             selected_methods = inquirer.checkbox(
                 message="Select HTTP methods to generate:",
-                choices=[
-                    Choice("GET", enabled=True),
-                    Choice("POST", enabled=True),
-                    Choice("PUT", enabled=False),
-                    Choice("PATCH", enabled=False),
-                    Choice("DELETE", enabled=False),
-                ],
+                choices=choices,
                 validate=lambda result: len(result) >= 1,
                 invalid_message="At least one method must be selected"
             ).execute()
@@ -145,29 +142,6 @@ def generate_route(path, name, methods, http_test, dry_run):
         else:
             # Parse comma-separated methods
             methods_list = [m.strip().upper() for m in methods.split(',')]
-
-        # Check if route already exists
-        existing_methods = _extract_existing_methods(route_file)
-        is_updating = len(existing_methods) > 0
-
-        if is_updating:
-            # Merge new methods with existing ones
-            combined_methods = list(set(existing_methods + methods_list))
-            combined_methods.sort(key=lambda x: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].index(x) if x in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] else 999)
-
-            new_methods = [m for m in methods_list if m not in existing_methods]
-
-            if not new_methods:
-                click.secho(f"[INFO] Methods {', '.join(methods_list)} already exist in route!", fg='yellow', bold=True)
-                click.secho(f"       Existing methods: {', '.join(existing_methods)}", fg='cyan')
-                return
-
-            methods_list = combined_methods
-            click.secho(f"\n[INFO] Route already exists. Adding new methods...", fg='cyan', bold=True)
-            click.secho(f"       Existing: {', '.join(existing_methods)}", fg='magenta')
-            click.secho(f"       Adding: {', '.join(new_methods)}", fg='green')
-            click.secho(f"       Final: {', '.join(methods_list)}", fg='yellow', bold=True)
-            click.echo()
 
         # Render template
         template = jinja_env.get_template('routes/class_route.py.j2')
@@ -201,10 +175,7 @@ def generate_route(path, name, methods, http_test, dry_run):
         # Write route file
         route_file.write_text(content)
 
-        if is_updating:
-            click.secho(f"[OK] Route updated: ", fg='green', bold=True, nl=False)
-        else:
-            click.secho(f"[OK] Route created: ", fg='green', bold=True, nl=False)
+        click.secho(f"[OK] Route created: ", fg='green', bold=True, nl=False)
 
         click.secho(f"{route_file}", fg='cyan')
         click.secho(f"     Path: ", fg='blue', nl=False)
@@ -269,7 +240,7 @@ def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
             path = inquirer.text(
                 message="Route path (e.g., /users or /api/posts):",
                 validate=validate_path_realtime,
-                invalid_message="Path must start with / and not end with / (e.g., /user, /api/posts)"
+                invalid_message="Invalid path (must start with /, no reserved names like os/sys)"
             ).execute()
 
         # Auto-generate name from path if not provided
@@ -877,34 +848,6 @@ def create_auth(method):
 
 
 # Helper functions
-
-def _extract_existing_methods(route_file: Path) -> list:
-    """
-    Extract existing HTTP methods from a route file.
-
-    Args:
-        route_file: Path to the existing route file
-
-    Returns:
-        List of existing HTTP methods (uppercase)
-    """
-    if not route_file.exists():
-        return []
-
-    content = route_file.read_text()
-    existing_methods = []
-
-    # Look for method definitions: def get(self):, def post(self):, etc.
-    method_pattern = r'def\s+(get|post|put|patch|delete)\s*\('
-    matches = re.finditer(method_pattern, content, re.IGNORECASE)
-
-    for match in matches:
-        method = match.group(1).upper()
-        if method not in existing_methods:
-            existing_methods.append(method)
-
-    return existing_methods
-
 
 def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
     """
