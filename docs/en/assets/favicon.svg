@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="32" height="32">
+  <circle cx="100" cy="100" r="96" fill="#17469E"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 40 72 L 40 62 L 55 62 L 62 72"/>
+    <path d="M 40 72 L 40 110 L 60 110"/>
+    <path d="M 60 82 L 90 82 Q 110 82 110 62 L 110 48"/>
+    <polyline points="100,58 110,44 120,58"/>
+    <path d="M 60 96 L 160 96"/>
+    <polyline points="148,86 162,96 148,106"/>
+    <path d="M 60 110 L 90 110 Q 110 110 110 130 L 110 148"/>
+    <polyline points="100,138 110,152 120,138"/>
+  </g>
+  <circle cx="110" cy="44" r="5" fill="#ED1C23"/>
+  <circle cx="162" cy="96" r="5" fill="#ED1C23"/>
+  <circle cx="110" cy="152" r="5" fill="#ED1C23"/>
+</svg>
