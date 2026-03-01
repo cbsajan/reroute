@@ -4,7 +4,7 @@ Thank you for considering contributing to REROUTE! We welcome all contributions 
 
 ## 📚 Full Contributing Guide
 
-**For detailed guidelines, please see the [Contributing Guide](https://cbsajan.github.io/reroute-docs/contributing/) in our documentation.**
+**For detailed guidelines, please see the [Contributing Guide](https://cbsajan.github.io/reroute/contributing/) in our documentation.**
 
 This includes:
 - Development setup and workflow
@@ -140,7 +140,7 @@ Fixes #42
 
 ## Getting Help
 
-- 📚 [Documentation](https://cbsajan.github.io/reroute-docs)
+- 📚 [Documentation](https://cbsajan.github.io/reroute)
 - 💬 [GitHub Discussions](https://github.com/cbsajan/reroute/discussions)
 - 🐛 [Issue Tracker](https://github.com/cbsajan/reroute/issues)
 

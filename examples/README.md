@@ -117,4 +117,4 @@ pytest test_fastapi.py
 
 ## What's Next?
 
-Check out the [full documentation](https://github.com/cbsajan/reroute-docs) for more examples and tutorials!
+Check out the [full documentation](https://github.com/cbsajan/reroute#documentation) for more examples and tutorials!

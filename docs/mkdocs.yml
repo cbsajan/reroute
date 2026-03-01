@@ -1,0 +1,153 @@
+site_name: REROUTE
+site_url: https://cbsajan.github.io/reroute
+site_description: Modern file-based routing for Python backends
+site_author: C B Sajan
+repo_url: https://github.com/cbsajan/reroute
+repo_name: cbsajan/reroute
+
+# Multilingual setup: content is in en/ subfolder
+docs_dir: en
+site_dir: site
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  palette:
+    # Light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.tracking
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - announce.dismiss
+
+  icon:
+    repo: fontawesome/brands/github
+
+# Custom CSS
+extra_css:
+  - stylesheets/extra.css
+  - css/termynal.css
+  - css/custom.css
+
+# Custom JavaScript
+extra_javascript:
+  - js/termynal.js
+  - js/custom.js
+
+# Extensions
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+# Plugins
+plugins:
+  - search:
+      lang:
+        - en
+  - tags
+
+# Page tree (FastAPI-style navigation)
+nav:
+  - Home: index.md
+  - Learn:
+    - learn/index.md
+    - Tutorial:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - First Route: getting-started/first-route.md
+    - User Guide:
+      - guides/index.md
+      - File-based Routing: guides/file-routing.md
+      - Class-based Routes: guides/class-routes.md
+      - Decorators: guides/decorators.md
+      - Lifecycle Hooks: guides/lifecycle-hooks.md
+      - Configuration: guides/configuration.md
+      - CORS Setup: guides/cors.md
+      - Security: guides/security.md
+      - Error Handling: guides/error-handling.md
+      - Testing: guides/testing.md
+      - Troubleshooting: guides/troubleshooting.md
+    - CLI:
+      - cli/index.md
+      - Commands: cli/commands.md
+      - Scaffolding: cli/scaffolding.md
+    - Deployment:
+      - deployment/index.md
+      - Production: deployment/production.md
+      - Docker: deployment/docker.md
+  - Reference:
+    - reference/index.md
+    - API Reference:
+      - api/index.md
+      - RouteBase: api/routebase.md
+      - Parameters: api/params.md
+      - Decorators: api/decorators.md
+      - Config: api/config.md
+      - Adapters: api/adapters.md
+    - Framework Adapters:
+      - adapters/index.md
+      - FastAPI: adapters/fastapi.md
+      - Flask: adapters/flask.md
+      - Django: adapters/django.md
+  - Examples:
+    - examples/index.md
+    - Flask Example: examples/flask-example.md
+    - FastAPI Example: examples/fastapi-example.md
+    - Basic CRUD: examples/basic-crud.md
+    - Authentication: examples/authentication.md
+    - Rate Limiting: examples/rate-limiting.md
+    - Caching: examples/caching.md
+    - Database: examples/database.md
+  - About:
+    - Changelog: changelog.md
+    - Contributing: contributing.md
+
+# Extra
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cbsajan/reroute
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/reroute
+  announcement: "REROUTE v0.2.4 is out! Critical CLI fix and OpenAPI improvements."
+  announcement_link: "/reroute/changelog/"

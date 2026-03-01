@@ -1,0 +1,385 @@
+/* REROUTE Deep Blue Theme */
+/* Primary color: #17469E (from logo) */
+/* Accent color: #ED1C23 (red from logo endpoints) */
+
+/* ===== Light Mode Colors ===== */
+:root {
+  --md-primary-fg-color: #17469E;
+  --md-primary-fg-color--light: #2B5BB0;
+  --md-primary-fg-color--dark: #0F3070;
+  --md-accent-fg-color: #ED1C23;
+  --md-accent-fg-color--transparent: rgba(237, 28, 35, 0.1);
+}
+
+/* ===== Dark Mode Colors ===== */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #4A7FC7;
+  --md-primary-fg-color--light: #6B9AD8;
+  --md-primary-fg-color--dark: #2B5BB0;
+  --md-accent-fg-color: #FF4B52;
+  --md-accent-fg-color--transparent: rgba(255, 75, 82, 0.1);
+}
+
+/* ===== Announcement Bar ===== */
+.md-banner {
+  background: linear-gradient(135deg, var(--md-primary-fg-color) 0%, var(--md-primary-fg-color--dark) 100%);
+  color: white;
+  padding: 0.3rem 1rem;
+}
+
+.md-banner__inner {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  width: 100%;
+}
+
+.md-banner a {
+  color: white !important;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.md-banner a:hover {
+  color: white !important;
+  text-decoration: none;
+}
+
+.md-banner a::before {
+  content: "\1F389";
+  font-size: 0.8rem;
+}
+
+
+/* Dismiss button styling */
+.md-banner__button {
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s ease;
+}
+
+.md-banner__button:hover {
+  color: white;
+}
+
+/* Dark mode announcement bar */
+[data-md-color-scheme="slate"] .md-banner {
+  background: linear-gradient(135deg, var(--md-primary-fg-color--dark) 0%, #1a3a6e 100%);
+}
+
+/* ===== Header Navigation ===== */
+.md-header {
+  background-color: var(--md-primary-fg-color);
+}
+
+/* ===== Badges Row ===== */
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  justify-content: center;
+}
+
+.badges img {
+  height: 20px;
+}
+
+/* ===== Feature Cards Enhancement ===== */
+.md-typeset .grid.cards > ul > li {
+  border-left: 3px solid var(--md-primary-fg-color);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(23, 70, 158, 0.15);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li:hover {
+  box-shadow: 0 4px 12px rgba(74, 127, 199, 0.25);
+}
+
+/* ===== Hero Section ===== */
+.hero-section {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.hero-logo {
+  max-width: 150px;
+  margin-bottom: 1rem;
+}
+
+.hero-tagline {
+  font-size: 1.5rem;
+  color: var(--md-default-fg-color--light);
+  margin-bottom: 1rem;
+}
+
+/* ===== Code Blocks ===== */
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* ===== Admonitions Enhancement ===== */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+/* ===== Navigation Tabs ===== */
+.md-tabs__link--active {
+  border-bottom: 2px solid var(--md-accent-fg-color);
+}
+
+/* ===== Footer Links ===== */
+.md-footer-meta {
+  background-color: var(--md-primary-fg-color--dark);
+}
+
+/* ===== Version Selector ===== */
+.md-header__topic {
+  display: flex;
+  align-items: center;
+}
+
+/* Version selector container */
+.md-version {
+  margin-left: 0.8rem;
+}
+
+/* Current version button */
+.md-version__current {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 20px !important;
+  padding: 0.3rem 0.8rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.md-version__current:hover,
+.md-version__current:focus,
+.md-version__current:active {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  border-radius: 20px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any focus ring or expansion effects */
+.md-version:hover .md-version__current,
+.md-version:focus-within .md-version__current {
+  border-radius: 20px !important;
+  outline: none !important;
+}
+
+/* Fix the version selector wrapper */
+.md-version {
+  position: relative;
+}
+
+.md-version::after,
+.md-version::before {
+  display: none !important;
+}
+
+/* Version dropdown list */
+.md-version__list {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  min-width: 140px;
+  padding: 0.4rem 0;
+  margin-top: 0.3rem;
+}
+
+/* Remove the speech bubble arrow/tail */
+.md-version__list::before,
+.md-version__list::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Also target any parent arrows */
+.md-version ul::before,
+.md-version ul::after,
+.md-select__inner::before,
+.md-select__inner::after {
+  display: none !important;
+  content: none !important;
+  border: none !important;
+}
+
+/* Version dropdown items */
+.md-version__link {
+  display: block;
+  color: #444 !important;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  text-decoration: none !important;
+}
+
+.md-version__link:hover {
+  background-color: rgba(23, 70, 158, 0.08);
+  color: var(--md-primary-fg-color) !important;
+  border-left-color: var(--md-primary-fg-color);
+}
+
+/* Active/current version in dropdown */
+.md-version__link--active,
+.md-version__link--active:hover {
+  background-color: rgba(23, 70, 158, 0.12);
+  color: var(--md-primary-fg-color) !important;
+  border-left-color: var(--md-primary-fg-color);
+  font-weight: 600;
+}
+
+/* Dark mode version selector */
+[data-md-color-scheme="slate"] .md-version__list {
+  background-color: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-md-color-scheme="slate"] .md-version__link {
+  color: #ccc !important;
+}
+
+[data-md-color-scheme="slate"] .md-version__link:hover {
+  background-color: rgba(74, 127, 199, 0.15);
+  color: #6B9AD8 !important;
+  border-left-color: #6B9AD8;
+}
+
+[data-md-color-scheme="slate"] .md-version__link--active,
+[data-md-color-scheme="slate"] .md-version__link--active:hover {
+  background-color: rgba(74, 127, 199, 0.2);
+  color: #6B9AD8 !important;
+  border-left-color: #6B9AD8;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media screen and (max-width: 76.1875em) {
+  .badges {
+    justify-content: flex-start;
+  }
+}
+
+/* ===== Quick Start Section ===== */
+.quick-start-steps {
+  counter-reset: step-counter;
+}
+
+.quick-start-steps h3::before {
+  counter-increment: step-counter;
+  content: counter(step-counter) ". ";
+  color: var(--md-primary-fg-color);
+  font-weight: bold;
+}
+
+/* ===== Terminal/Console Styling ===== */
+.terminal {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 0;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.terminal-header {
+  background: #333;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.terminal-button.red { background: #ff5f56; }
+.terminal-button.yellow { background: #ffbd2e; }
+.terminal-button.green { background: #27c93f; }
+
+.terminal-title {
+  color: #999;
+  font-size: 12px;
+  margin-left: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.terminal-body {
+  padding: 16px 20px;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #f8f8f2;
+  overflow-x: auto;
+}
+
+.terminal-line {
+  margin: 4px 0;
+}
+
+.terminal-prompt {
+  color: #50fa7b;
+}
+
+.terminal-prompt::before {
+  content: "$ ";
+  color: #50fa7b;
+}
+
+.terminal-output {
+  color: #8be9fd;
+}
+
+.terminal-comment {
+  color: #6272a4;
+}
+
+.terminal-success {
+  color: #50fa7b;
+}
+
+.terminal-warning {
+  color: #f1fa8c;
+}
+
+.terminal-error {
+  color: #ff5555;
+}
+
+.terminal-highlight {
+  color: #ff79c6;
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] .terminal {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
