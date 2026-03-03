@@ -7,7 +7,8 @@ Integrates REROUTE's file-based routing with FastAPI.
 import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
-from fastapi import FastAPI, Request, Response, Query, Path, Header, Body, Cookie
+from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie
+from fastapi.params import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -343,7 +344,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required query parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Path):
+            elif isinstance(default_value, FastAPIPath):
                 # Extract from path parameters
                 value = path_params.get(param_name)
                 if value is None and default_value.default is not ...:
