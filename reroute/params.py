@@ -1,14 +1,17 @@
 """
 REROUTE Parameter Injection
 
-Provides FastAPI-style parameter injection for route handlers.
-Use these in route method signatures to automatically extract and validate request data.
+Provides parameter injection for route handlers.
 
-SECURITY FEATURES:
-- Comprehensive input validation using Pydantic
-- Size limits and sanitization
-- Type checking enforcement
-- Security-aware parameter constraints
+IMPORTANT: Use FastAPI's native parameter classes for type validation and OpenAPI docs:
+    from fastapi import Path, Query, Body, Header, Cookie, Form, File
+
+Example:
+    def get(self, user_id: str = Path(..., description="User ID")):
+        return {"user_id": user_id}
+
+REROUTE's parameter classes below provide enhanced security validation when used with
+the framework's security middleware.
 """
 
 import re
@@ -705,12 +708,19 @@ class File(ParamBase):
         return True
 
 
-# Aliases for convenience
-Param = Query  # Backwards compatibility
+# REROUTE's parameter classes (for internal framework use)
+# Users should import from FastAPI directly: from fastapi import Path, Query, etc.
+
+# Backwards compatibility aliases
+Param = Query  # Deprecated: Use Query from fastapi
 Depends = ParamBase  # For dependency injection (future feature)
 
 
 __all__ = [
+    "Param",
+    "Depends",
+    "SecurityValidator",
+    "ParamBase",
     "Query",
     "Path",
     "Header",
@@ -718,6 +728,4 @@ __all__ = [
     "Cookie",
     "Form",
     "File",
-    "Param",
-    "Depends",
 ]

@@ -244,40 +244,6 @@ adapter = FastAPIAdapter(fastapi_app=app, app_dir="./app")
 adapter.register_routes()
 ```
 
-### Flask Global Error Handler
-
-```python
-from flask import Flask, jsonify
-from reroute.adapters import FlaskAdapter
-
-app = Flask(__name__)
-
-# Global error handlers
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({"error": "Not found", "message": str(error)}), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    # Log the error
-    print(f"Internal error: {error}")
-    return jsonify({"error": "Internal server error"}), 500
-
-@app.errorhandler(Exception)
-def handle_exception(error):
-    # Log all unhandled exceptions
-    print(f"Unhandled exception: {type(error).__name__}: {error}")
-
-    return jsonify({
-        "error": "An error occurred",
-        "type": type(error).__name__
-    }), 500
-
-# Register REROUTE routes
-adapter = FlaskAdapter(flask_app=app, app_dir="./app")
-adapter.register_routes()
-```
-
 ---
 
 ## Validation Errors

@@ -2,148 +2,41 @@
 
 Common issues and solutions when using REROUTE.
 
-## Flask Adapter Issues
+## Import Errors
 
-### Routes Not Appearing in Swagger UI
-
-**Symptoms:**
-- Swagger UI loads successfully but shows no API endpoints
-- OpenAPI JSON at `/docs/openapi.json` has empty `"paths": {}`
-- Routes work correctly when tested with `curl` or browser
-- Response schemas appear in OpenAPI spec but no actual routes
-
-**Root Cause:**
-
-This issue was caused by two bugs in the Flask adapter's Spectree integration:
-
-1. **Empty Path Parameter Bug**: When `DOCS_PATH="/docs"` in config, the adapter extracted an empty string (`path=''`) to pass to Spectree. Spectree's route discovery filter then excluded ALL routes because:
-   - Filter logic: Skip routes starting with `/{path}` or `/static`
-   - When `path=''`, this becomes: Skip routes starting with `/`
-   - Since ALL routes start with `/`, ALL routes were excluded from OpenAPI generation
-
-2. **Closure Metadata Bug**: REROUTE's closure-based request handling wrapped handlers in a way that hid Spectree's validation metadata, preventing proper OpenAPI documentation generation.
-
-**Solution (Fixed in v0.1.4):**
-
-The Flask adapter now:
-
-1. **Never uses empty path**: Extracts the first segment from `DOCS_PATH` (e.g., `"/docs"` → `path="docs"`, `"/api/docs"` → `path="api"`), ensuring Spectree's filter doesn't exclude all routes
-2. **Validates handlers early**: Applies `spec.validate()` to handlers BEFORE wrapping in REROUTE's closure
-3. **Copies metadata correctly**: Transfers all Spectree attributes (`_decorator`, `tags`, `operation_id`, etc.) from validated handler to Flask-facing closure
-
-**Updated Swagger UI Paths:**
-
-Because the path is no longer empty, Swagger UI endpoints are now at:
-
-```
-DOCS_PATH in config    →    Swagger UI URL
-/docs                  →    /docs/swagger/
-/api/docs              →    /api/swagger/
-/custom                →    /custom/swagger/
-```
-
-**Migration:**
-
-If you were accessing Swagger UI at `/swagger/`, you now need to use `/docs/swagger/` (or whatever your `DOCS_PATH` is configured to).
-
-To keep the old `/swagger/` URL, you can:
-1. Update your bookmarks/links to `/docs/swagger/`
-2. Or change `DOCS_PATH` in config.py to match your preference
-
-**Example:**
-
-```python
-# config.py
-class AppConfig(Config):
-    class OpenAPI:
-        ENABLE = True
-        DOCS_PATH = "/docs"           # Swagger UI at /docs/swagger/
-        JSON_PATH = "/openapi.json"   # OpenAPI spec at /docs/openapi.json
-```
-
-### IndentationError in Generated config.py
+### Adapter Import Error
 
 **Symptoms:**
 ```
-File "config.py", line 42
-  TITLE = "MyProject"
-IndentationError: unexpected indent
+ImportError: cannot import name 'FlaskAdapter' from 'reroute'
+ImportError: Flask adapter is not available
 ```
 
 **Root Cause:**
 
-In earlier versions (before v0.1.4), the Jinja2 template had multiple configuration statements on a single line:
-
-```python
-REDOC_PATH = None ... JSON_PATH = "/openapi.json"
-```
+REROUTE now focuses exclusively on FastAPI. Other framework adapters are not available.
 
 **Solution:**
 
-Fixed in v0.1.4 - each statement is now on its own line with proper indentation.
-
-**For Existing Projects:**
-
-If your project was created before v0.1.4, manually fix your `config.py`:
+Use `FastAPIAdapter` instead:
 
 ```python
-# BEFORE (WRONG - all on one line):
-REDOC_PATH = None              # ReDoc disabled for Flask (broken CDN)    JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
+# Correct usage:
+from reroute import FastAPIAdapter
 
-# AFTER (CORRECT - separate lines):
-REDOC_PATH = None              # ReDoc disabled for Flask (broken CDN)
-JSON_PATH = "/openapi.json"    # OpenAPI JSON spec endpoint
+from fastapi import FastAPI
+from config import AppConfig
+
+app = FastAPI(title="My API")
+adapter = FastAPIAdapter(app, app_dir="./app", config=AppConfig)
+adapter.register_routes()
 ```
 
-### ModuleNotFoundError: spectree
+If you're migrating from another framework, see [FastAPI Integration](../adapters/fastapi.md) for guidance.
 
-**Symptoms:**
-```
-ModuleNotFoundError: No module named 'spectree'
-```
+---
 
-**Solution:**
-
-Install all dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Or install spectree directly:
-
-```bash
-pip install spectree
-```
-
-### CORS Errors in Browser
-
-**Symptoms:**
-- Browser console shows CORS errors
-- API works with curl but fails from web frontend
-
-**Solution:**
-
-Enable and configure CORS in your `config.py`:
-
-```python
-class AppConfig(Config):
-    ENABLE_CORS = True
-    CORS_ALLOW_ORIGINS = ["http://localhost:3000"]  # Your frontend URL
-    CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    CORS_ALLOW_HEADERS = ["*"]
-    CORS_ALLOW_CREDENTIALS = True
-```
-
-Install flask-cors:
-
-```bash
-pip install flask-cors
-```
-
-## General Issues
-
-### Routes Not Being Registered
+## Routes Not Being Registered
 
 **Symptoms:**
 - Routes return 404 errors
@@ -175,11 +68,14 @@ class HelloRoutes(RouteBase):
         return {"message": "Hello"}
 ```
 
-### Port Already in Use
+---
+
+## Port Already in Use
 
 **Symptoms:**
 ```
 OSError: [Errno 98] Address already in use
+OSError: [Errno 48] Address already in use
 ```
 
 **Solution:**
@@ -202,10 +98,153 @@ taskkill /PID <process_id> /F
 lsof -ti:7376 | xargs kill -9
 ```
 
+---
+
+## Routes Not Appearing in Swagger UI
+
+**Symptoms:**
+- Swagger UI loads successfully but shows no API endpoints
+- OpenAPI JSON at `/docs/openapi.json` has empty `"paths": {}`
+- Routes work correctly when tested with `curl` or browser
+
+**Common Causes:**
+
+1. **OpenAPI disabled**: Check if `OpenAPI.ENABLE = True` in config
+2. **Wrong port**: Ensure you're accessing the correct port
+3. **Routes not registered**: Verify `adapter.register_routes()` is called
+
+**Solution:**
+
+```python
+# config.py
+class AppConfig(Config):
+    class OpenAPI:
+        ENABLE = True                    # Enable OpenAPI docs
+        DOCS_PATH = "/docs"              # Swagger UI endpoint
+        JSON_PATH = "/openapi.json"      # OpenAPI spec endpoint
+
+# main.py
+adapter.register_routes()  # Don't forget this!
+```
+
+---
+
+## ModuleNotFoundError
+
+**Symptoms:**
+```
+ModuleNotFoundError: No module named 'fastapi'
+```
+
+**Solution:**
+
+Install all dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Or install FastAPI directly:
+
+```bash
+pip install fastapi uvicorn
+```
+
+---
+
+## Configuration Issues
+
+### IndentationError in Generated config.py
+
+**Symptoms:**
+```
+File "config.py", line 42
+  TITLE = "MyProject"
+IndentationError: unexpected indent
+```
+
+**Root Cause:**
+
+In earlier versions (before v0.1.4), the Jinja2 template had multiple configuration statements on a single line.
+
+**Solution:**
+
+Fixed in v0.1.4+. If you have an old project, manually fix your `config.py`:
+
+```python
+# BEFORE (WRONG):
+REDOC_PATH = None ... JSON_PATH = "/openapi.json"
+
+# AFTER (CORRECT):
+REDOC_PATH = None
+JSON_PATH = "/openapi.json"
+```
+
+---
+
+## CORS Errors in Browser
+
+**Symptoms:**
+- Browser console shows CORS errors
+- API works with curl but fails from web frontend
+
+**Solution:**
+
+Enable and configure CORS in your `config.py`:
+
+```python
+class AppConfig(Config):
+    ENABLE_CORS = True
+    CORS_ALLOW_ORIGINS = ["http://localhost:3000"]  # Your frontend URL
+    CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    CORS_ALLOW_HEADERS = ["*"]
+    CORS_ALLOW_CREDENTIALS = True
+```
+
+---
+
+## Performance Issues
+
+### Slow Route Discovery
+
+**Symptoms:**
+- Application takes a long time to start
+- Many route files
+
+**Solution:**
+
+REROUTE caches discovered routes. If you have performance issues:
+
+1. Reduce the number of nested route folders
+2. Use class-based routes instead of many small files
+3. Check for circular imports in route files
+
+### Memory Issues
+
+**Symptoms:**
+- Application uses too much memory
+- Memory usage grows over time
+
+**Solution:**
+
+The `@cache` decorator has built-in LRU eviction with bounded storage (1000 entries max). If you need more control:
+
+```python
+from reroute.decorators import cache
+
+# Configure cache limits
+@cache(max_entries=500, duration=60)  # Keep only 500 entries
+def get_data():
+    return expensive_operation()
+```
+
+---
+
 ## Need More Help?
 
 If you encounter issues not covered here:
 
-1. Check the [Examples](../examples/index.md) for working code
-2. Review the [API Reference](../api/index.md) for detailed documentation
-3. Report bugs at [GitHub Issues](https://github.com/anthropics/reroute/issues)
+1. Check the [Installation Troubleshooting](../troubleshooting/installation.md) for setup issues
+2. Review the [Examples](../examples/index.md) for working code
+3. Check the [API Reference](../api/index.md) for detailed documentation
+4. Report bugs at [GitHub Issues](https://github.com/cbsajan/reroute/issues)

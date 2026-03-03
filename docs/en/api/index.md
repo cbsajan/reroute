@@ -94,14 +94,9 @@ class MyConfig(Config):
 ### Adapters
 
 ```python
-from reroute.adapters import FastAPIAdapter, FlaskAdapter
+from reroute.adapters import FastAPIAdapter
 
-# FastAPI
 adapter = FastAPIAdapter(fastapi_app=app, app_dir=path)
-adapter.register_routes()
-
-# Flask
-adapter = FlaskAdapter(flask_app=app, app_dir=path)
 adapter.register_routes()
 ```
 

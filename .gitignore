@@ -97,3 +97,12 @@ logs/
 
 # Personal developer documentation (not for GitHub)
 # (Covered by internal-docs/ above)
+docs/development/
+docs/IMPLEMENTATION_STATUS.md
+docs/testing-plan.md
+ARCHIVE_INSTRUCTIONS.md
+
+# Test applications
+test_App/
+examples/dummy/
+nul

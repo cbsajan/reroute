@@ -25,7 +25,7 @@ REROUTE provides **comprehensive security headers by default** with environment-
 
 ## Comprehensive Security Headers (Applied by Default)
 
-REROUTE automatically applies these OWASP-compliant security headers in both FastAPI and Flask adapters:
+REROUTE automatically applies these OWASP-compliant security headers in the FastAPI adapter:
 
 ### Active Headers
 
@@ -66,22 +66,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         # Apply all OWASP-compliant security headers
-        security_headers = self.security_config.get_security_headers()
-        for header_name, header_value in security_headers.items():
-            response.headers[header_name] = header_value
-        return response
-```
-
-**Flask Adapter:**
-```python
-# reroute/adapters/flask.py - FlaskSecurityHeadersMiddleware
-class FlaskSecurityHeadersMiddleware:
-    def __init__(self, app, security_config: SecurityHeadersConfig):
-        self.app = app
-        self.security_config = security_config
-        self.app.after_request(self._add_security_headers)
-
-    def _add_security_headers(self, response):
         security_headers = self.security_config.get_security_headers()
         for header_name, header_value in security_headers.items():
             response.headers[header_name] = header_value
@@ -158,17 +142,24 @@ async def add_security_headers(request, call_next):
 ```
 
 ```python
-# Flask example
-from flask import Flask
-from flask_cors import CORS
+# FastAPI example with additional middleware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-app = Flask(__name__)
+app = FastAPI()
 
 # Add CORS (if needed)
-CORS(app, origins=["https://yourdomain.com"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://yourdomain.com"],  # Restrict origins
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
-@app.after_request
-def add_security_headers(response):
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
     # Additional security headers for production
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = "default-src 'self'"
@@ -680,8 +671,10 @@ class ProtectedRoutes(RouteBase):
 
     def get_auth_token(self):
         """Extract token from Authorization header."""
-        from flask import request
-        auth_header = request.headers.get('Authorization')
+        from fastapi import Request
+        # In FastAPI, access request through dependency injection
+        # or pass as parameter to your route method
+        auth_header = self.request.headers.get('Authorization')
 
         if auth_header and auth_header.startswith('Bearer '):
             return auth_header[7:]
@@ -829,8 +822,8 @@ class APIKeyRoutes(RouteBase):
         return None
 
     def get_api_key(self):
-        from flask import request
-        return request.headers.get('X-API-Key')
+        # In FastAPI, access headers through Request parameter
+        return self.request.headers.get('X-API-Key')
 
     def get(self):
         return {

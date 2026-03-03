@@ -2,6 +2,22 @@
 
 Build your first REROUTE application in 5 minutes using CLI commands.
 
+## Watch the Demo
+
+!!! tip "Video Tutorial"
+    Watch a 2-minute demo of initializing a REROUTE project with FastAPI:
+
+    <video width="100%" height="auto" controls style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <source src="https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    **[Download video](https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4)** | **[Watch on GitHub](https://github.com/cbsajan/reroute/blob/main/reroute/assets/demo.mp4)**
+
+    *Duration: 2 minutes - Shows complete project initialization, first route creation, and testing with Swagger UI*
+
+---
+
 ## Step 1: Install REROUTE
 
 === "pip"

@@ -15,7 +15,7 @@ REROUTE is a modern routing framework that brings Next.js-style file-based routi
 ## Prerequisites
 
 - Python 3.8 or higher
-- A web framework (FastAPI or Flask)
+- FastAPI framework
 - Basic understanding of REST APIs
 
 ## Installation Options
@@ -23,25 +23,18 @@ REROUTE is a modern routing framework that brings Next.js-style file-based routi
 ### From PyPI (Recommended)
 
 ```bash
-pip install reroute
+pip install reroute[fastapi]
 ```
 
-### With specific framework support
+This includes REROUTE with FastAPI support.
 
-=== "FastAPI"
-    ```bash
-    pip install reroute[fastapi]
-    ```
+### Using uv (Faster)
 
-=== "Flask"
-    ```bash
-    pip install reroute[flask]
-    ```
+```bash
+uv pip install reroute[fastapi]
+```
 
-=== "All frameworks"
-    ```bash
-    pip install reroute[all]
-    ```
+[uv](https://github.com/astral-sh/uv) is an ultra-fast Python package installer.
 
 ### From Source
 

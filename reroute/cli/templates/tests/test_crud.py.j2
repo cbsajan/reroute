@@ -1,0 +1,129 @@
+{# Auto-generated CRUD test file from REROUTE CLI #}
+{# Resource: {{ resource_name }} #}
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+class Test{{ resource_name|capitalize }}CRUD:
+    """Test suite for {{ resource_name }} CRUD operations."""
+
+    def test_create_{{ resource_name }}(self, client: TestClient):
+        """Test creating a new {{ resource_name }}."""
+        payload = {
+            # TODO: Add valid creation data
+            "name": "Test {{ resource_name }}",
+            "description": "Test description",
+        }
+
+        response = client.post("/{{ resource_name }}", json=payload)
+        assert response.status_code == 201
+
+        data = response.json()
+        assert "id" in data
+        assert data["name"] == "Test {{ resource_name }}"
+
+    def test_read_{{ resource_name }}_list(self, client: TestClient):
+        """Test reading all {{ resource_name }} resources."""
+        response = client.get("/{{ resource_name }}")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_read_{{ resource_name }}_detail(self, client: TestClient):
+        """Test reading a single {{ resource_name }} by ID."""
+        # First create a resource
+        create_payload = {
+            "name": "Test {{ resource_name }}",
+        }
+        create_response = client.post("/{{ resource_name }}", json=create_payload)
+        resource_id = create_response.json()["id"]
+
+        # Then read it
+        response = client.get(f"/{{ resource_name }}/{resource_id}")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["id"] == resource_id
+
+    def test_update_{{ resource_name }}(self, client: TestClient):
+        """Test updating a {{ resource_name }}."""
+        # First create a resource
+        create_payload = {
+            "name": "Original name",
+        }
+        create_response = client.post("/{{ resource_name }}", json=create_payload)
+        resource_id = create_response.json()["id"]
+
+        # Then update it
+        update_payload = {
+            "name": "Updated name",
+        }
+        response = client.put(f"/{{ resource_name }}/{resource_id}", json=update_payload)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["name"] == "Updated name"
+
+    def test_delete_{{ resource_name }}(self, client: TestClient):
+        """Test deleting a {{ resource_name }}."""
+        # First create a resource
+        create_payload = {
+            "name": "To be deleted",
+        }
+        create_response = client.post("/{{ resource_name }}", json=create_payload)
+        resource_id = create_response.json()["id"]
+
+        # Then delete it
+        response = client.delete(f"/{{ resource_name }}/{resource_id}")
+        assert response.status_code == 204
+
+        # Verify it's gone
+        get_response = client.get(f"/{{ resource_name }}/{resource_id}")
+        assert get_response.status_code == 404
+
+    def test_{{ resource_name }}_not_found(self, client: TestClient):
+        """Test accessing non-existent {{ resource_name }}."""
+        response = client.get("/{{ resource_name }}/999999")
+        assert response.status_code == 404
+
+    def test_{{ resource_name }}_validation_error(self, client: TestClient):
+        """Test {{ resource_name }} validation with invalid data."""
+        invalid_payload = {
+            # TODO: Add invalid data based on your validation rules
+            "name": "",  # Empty name might be invalid
+        }
+
+        response = client.post("/{{ resource_name }}", json=invalid_payload)
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("priority", ["high", "medium", "low"])
+    def test_{{ resource_name }}_with_priority(self, client: TestClient, priority):
+        """Test creating {{ resource_name }} with different priorities."""
+        payload = {
+            "name": f"Test {priority} priority",
+            "priority": priority,
+        }
+
+        response = client.post("/{{ resource_name }}", json=payload)
+        assert response.status_code == 201
+
+        data = response.json()
+        assert data["priority"] == priority
+
+
+@pytest.fixture
+def client(app):
+    """Fixture to provide test client."""
+    from fastapi.testclient import TestClient
+    return TestClient(app)
+
+
+@pytest.fixture
+def app():
+    """Fixture to provide FastAPI app instance."""
+    # Import your app
+    # TODO: Update with your actual app import
+    from main import app
+    return app

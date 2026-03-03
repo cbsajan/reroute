@@ -153,7 +153,7 @@ class CustomConfig(Config):
 }
 ```
 
-The health check endpoint is automatically registered with both FastAPI and Flask adapters.
+The health check endpoint is automatically registered with the FastAPI adapter.
 
 ## Environment Variables
 

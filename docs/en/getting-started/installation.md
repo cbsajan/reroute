@@ -3,13 +3,13 @@
 Learn how to install REROUTE in your Python project.
 
 !!! info "Current Version"
-    **Latest Release**: v0.2.4
+    **Latest Release**: v0.2.5
     **Python Support**: 3.8, 3.9, 3.10, 3.11, 3.12
 
 ## Requirements
 
 - **Python**: 3.8 or higher
-- **Framework**: FastAPI or Flask (at least one)
+- **Framework**: FastAPI
 
 ## Basic Installation
 
@@ -49,7 +49,7 @@ Learn how to install REROUTE in your Python project.
 
 ## Framework-Specific Installation
 
-Install REROUTE with support for your specific framework:
+Install REROUTE with FastAPI support:
 
 === "FastAPI (pip)"
 
@@ -63,22 +63,6 @@ Install REROUTE with support for your specific framework:
 
     ```bash
     uv pip install reroute[fastapi]
-    ```
-
-    Faster installation with uv.
-
-=== "Flask (pip)"
-
-    ```bash
-    pip install reroute[flask]
-    ```
-
-    This includes Flask, Flask-CORS, and Spectree.
-
-=== "Flask (uv)"
-
-    ```bash
-    uv pip install reroute[flask]
     ```
 
     Faster installation with uv.
@@ -130,7 +114,7 @@ Or use the CLI:
 
 ```bash
 reroute --version
-# Output: REROUTE CLI v0.2.3
+# Output: REROUTE CLI v0.2.5
 ```
 
 !!! note "Update Notifications"
@@ -141,7 +125,13 @@ reroute --version
 To update to the latest version:
 
 ```bash
-pip install --upgrade reroute
+pip install --upgrade reroute[fastapi]
+```
+
+Or with uv:
+
+```bash
+uv pip install --upgrade reroute[fastapi]
 ```
 
 ## Uninstall
@@ -154,5 +144,14 @@ pip uninstall reroute
 
 ## Next Steps
 
-- [Quick Start Guide](quickstart.md) - Build your first app
-- [First Route](first-route.md) - Create your first route
+!!! tip "Watch the Demo"
+    See REROUTE in action with our 2-minute video tutorial:
+
+    <video width="100%" height="auto" controls style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <source src="https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    **[Quick Start Guide](quickstart.md)** - Build your first app in 5 minutes
+    **[First Route](first-route.md)** - Create your first route
+    **[Installation Troubleshooting](../troubleshooting/installation.md)** - Common installation issues

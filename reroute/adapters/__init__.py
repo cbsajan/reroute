@@ -23,14 +23,13 @@ def __getattr__(name: str):
             ) from e
 
     elif name == "FlaskAdapter":
-        try:
-            from reroute.adapters.flask import FlaskAdapter
-            return FlaskAdapter
-        except ImportError as e:
-            raise ImportError(
-                f"Flask is not installed. Install it with: pip install reroute[flask]"
-            ) from e
+        raise ImportError(
+            "Flask adapter is not available. REROUTE now focuses exclusively on FastAPI. "
+            "Please use FastAPIAdapter instead. FastAPI provides better async support, "
+            "automatic OpenAPI documentation, and is actively maintained. "
+            "See https://fastapi.tiangolo.com for more information."
+        )
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-__all__ = ["FastAPIAdapter", "FlaskAdapter"]
+__all__ = ["FastAPIAdapter"]

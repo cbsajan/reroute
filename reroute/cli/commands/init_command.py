@@ -25,7 +25,7 @@ jinja_env = Environment(
 @click.command()
 @click.argument('name', required=False)
 @click.option('--framework', default=None,
-              help='Backend framework (fastapi or flask)')
+              help='Backend framework (fastapi)')
 @click.option('--package-manager', default='uv',
               type=click.Choice(['uv', 'pip']),
               help='Package manager (default: uv)')
@@ -84,7 +84,7 @@ def init(name, framework, package_manager, config, host, port, description, data
     if not framework:
         framework = inquirer.select(
             message="Which framework would you like to use?",
-            choices=['fastapi', 'flask']
+            choices=['fastapi']
         ).execute()
         if not framework:
             click.secho("\n[ERROR] Framework selection is required!", fg='red', bold=True)
@@ -92,8 +92,8 @@ def init(name, framework, package_manager, config, host, port, description, data
     else:
         # Validate and normalize CLI flag input (case-insensitive)
         framework_lower = framework.lower()
-        if framework_lower not in ['fastapi', 'flask']:
-            click.secho(f"\n[ERROR] Invalid framework: '{framework}'. Choose 'fastapi' or 'flask'.", fg='red', bold=True)
+        if framework_lower not in ['fastapi']:
+            click.secho(f"\n[ERROR] Invalid framework: '{framework}'. REROUTE uses FastAPI exclusively.", fg='red', bold=True)
             sys.exit(1)
         framework = framework_lower
 

@@ -208,8 +208,8 @@ from fastapi import HTTPException, BackgroundTasks, Depends  # ✅ FastAPI-speci
 ```
 
 **Why?**
-- REROUTE's `params` work with both Flask and FastAPI
-- FastAPI's exception handling and dependency injection are framework-specific and should be used directly
+- REROUTE's `params` work seamlessly with FastAPI
+- FastAPI's exception handling and dependency injection should be used directly
 
 ### User Routes (Async)
 
@@ -733,6 +733,5 @@ class UserCreate(BaseModel):
 ## See Also
 
 - [FastAPI Adapter Documentation](../adapters/fastapi.md)
-- [Flask Example](flask-example.md)
 - [Configuration Guide](../guides/configuration.md)
 - [Async Best Practices](https://fastapi.tiangolo.com/async/)

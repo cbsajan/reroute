@@ -5,11 +5,16 @@ Provides secure password hashing, JWT token management, and
 cryptographically secure random token generation.
 """
 
-from typing import Optional, Dict, Any, List
+from __future__ import annotations  # Enable postponed evaluation of annotations
+
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from dataclasses import dataclass
 import secrets
 import time
 import hashlib
+
+if TYPE_CHECKING:
+    from argon2 import PasswordHasher
 
 # Optional dependencies - will be imported when needed
 try:

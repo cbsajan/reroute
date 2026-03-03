@@ -77,6 +77,16 @@ class RouteLoader:
             relative_path = module_path.relative_to(self.routes_dir.parent)
             module_name = str(relative_path).replace('\\', '.').replace('/', '.')[:-3]  # Remove .py extension
 
+            # Sanitize bracket notation in module names (e.g., [id] -> _id_, [user_id] -> _user_id_)
+            # This is needed because [id] is not a valid Python identifier
+            def sanitize_module_name(name: str) -> str:
+                """Replace bracket notation with valid Python identifiers."""
+                import re
+                # Replace [param_name] with _param_name_
+                return re.sub(r'\[([^\]]+)\]', r'_\1_', name)
+
+            module_name = sanitize_module_name(module_name)
+
             # Security: Validate module name for safe import
             unsafe_segment = self._get_unsafe_segment(module_name)
             if unsafe_segment:

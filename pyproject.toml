@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reroute"
-version = "0.2.4"
+version = "0.2.5"
 description = "File-based routing for Python backend frameworks (FastAPI, Flask)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -35,12 +35,27 @@ dependencies = [
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100.0", "uvicorn[standard]>=0.20.0"]
 flask = ["flask>=2.0.0"]
+security = [
+    "argon2-cffi>=23.0.0",
+    "pyjwt>=2.8.0",
+    "email-validator>=2.0.0",
+    "bleach>=6.0.0",
+]
+openapi = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+]
+websocket = [
+    "websockets>=11.0",
+    "python-socketio>=5.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "sqlalchemy>=2.0.0",
+    "bandit>=1.7.0",
 ]
 
 [project.scripts]

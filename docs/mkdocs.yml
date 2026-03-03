@@ -85,53 +85,64 @@ plugins:
         - en
   - tags
 
-# Page tree (FastAPI-style navigation)
+# Page tree (FastAPI-style progressive navigation)
 nav:
   - Home: index.md
-  - Learn:
-    - learn/index.md
-    - Tutorial:
-      - getting-started/index.md
-      - Installation: getting-started/installation.md
-      - Quick Start: getting-started/quickstart.md
-      - First Route: getting-started/first-route.md
-    - User Guide:
-      - guides/index.md
-      - File-based Routing: guides/file-routing.md
-      - Class-based Routes: guides/class-routes.md
-      - Decorators: guides/decorators.md
-      - Lifecycle Hooks: guides/lifecycle-hooks.md
-      - Configuration: guides/configuration.md
-      - CORS Setup: guides/cors.md
-      - Security: guides/security.md
-      - Error Handling: guides/error-handling.md
-      - Testing: guides/testing.md
-      - Troubleshooting: guides/troubleshooting.md
-    - CLI:
-      - cli/index.md
-      - Commands: cli/commands.md
-      - Scaffolding: cli/scaffolding.md
-    - Deployment:
-      - deployment/index.md
-      - Production: deployment/production.md
-      - Docker: deployment/docker.md
-  - Reference:
-    - reference/index.md
-    - API Reference:
-      - api/index.md
-      - RouteBase: api/routebase.md
-      - Parameters: api/params.md
-      - Decorators: api/decorators.md
-      - Config: api/config.md
-      - Adapters: api/adapters.md
-    - Framework Adapters:
-      - adapters/index.md
-      - FastAPI: adapters/fastapi.md
-      - Flask: adapters/flask.md
-      - Django: adapters/django.md
+  - Start Here: start-here.md
+  - Tutorial:
+    - tutorial/index.md
+    - Very Easy:
+      - Hello World: tutorial/very-easy/hello-world.md
+      - First Server: tutorial/very-easy/first-server.md
+      - Understanding Routes: tutorial/very-easy/understanding-routes.md
+    - Easy:
+      - Dynamic Routes: tutorial/easy/dynamic-routes.md
+      - HTTP Methods: tutorial/easy/http-methods.md
+      - Query Parameters: tutorial/easy/query-params.md
+    - Medium:
+      - CRUD Application: tutorial/medium/crud-app.md
+      - Decorators: tutorial/medium/decorators-intro.md
+      - Error Handling: tutorial/medium/error-handling.md
+  - Troubleshooting:
+    - Installation Issues: troubleshooting/installation.md
+    - Common Errors: guides/troubleshooting.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - First Route: getting-started/first-route.md
+  - User Guides:
+    - guides/index.md
+    - File-based Routing: guides/file-routing.md
+    - Class-based Routes: guides/class-routes.md
+    - Decorators: guides/decorators.md
+    - Lifecycle Hooks: guides/lifecycle-hooks.md
+    - Configuration: guides/configuration.md
+    - CORS Setup: guides/cors.md
+    - Security: guides/security.md
+    - Error Handling: guides/error-handling.md
+    - Testing: guides/testing.md
+  - CLI Reference:
+    - cli/index.md
+    - Commands: cli/commands.md
+    - Scaffolding: cli/scaffolding.md
+  - Deployment:
+    - deployment/index.md
+    - Production: deployment/production.md
+    - Docker: deployment/docker.md
+  - API Reference:
+    - api/index.md
+    - RouteBase: api/routebase.md
+    - Parameters: api/params.md
+    - Decorators: api/decorators.md
+    - Config: api/config.md
+    - Adapters: api/adapters.md
+  - Framework Adapters:
+    - adapters/index.md
+    - FastAPI: adapters/fastapi.md
+    - Django: adapters/django.md
   - Examples:
     - examples/index.md
-    - Flask Example: examples/flask-example.md
     - FastAPI Example: examples/fastapi-example.md
     - Basic CRUD: examples/basic-crud.md
     - Authentication: examples/authentication.md
@@ -149,5 +160,5 @@ extra:
       link: https://github.com/cbsajan/reroute
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/reroute
-  announcement: "REROUTE v0.2.4 is out! Critical CLI fix and OpenAPI improvements."
+  announcement: "REROUTE v0.2.5 is out! Flask adapter removed, focusing exclusively on FastAPI."
   announcement_link: "/reroute/changelog/"

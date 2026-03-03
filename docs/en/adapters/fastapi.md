@@ -402,7 +402,6 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ## See Also
 
-- [Flask Adapter Documentation](flask.md)
 - [Configuration Guide](../guides/configuration.md)
 - [REROUTE Documentation Home](../index.md)
 - [GitHub Repository](https://github.com/cbsajan/reroute)

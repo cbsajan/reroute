@@ -5,14 +5,8 @@
 reroute
 
 # Web Framework
-{% if framework == 'fastapi' -%}
 fastapi
 uvicorn[standard]
-{% elif framework == 'flask' -%}
-flask
-flask-cors
-spectree
-{% endif -%}
 {% if db_type -%}
 
 # Database

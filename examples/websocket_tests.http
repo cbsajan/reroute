@@ -1,0 +1,149 @@
+### ============================================
+### REROUTE Feature Testing - HTTP File
+### ============================================
+###
+### This file contains manual tests for all REROUTE features.
+###
+### Usage with REST Client extension (VS Code / IntelliJ):
+### 1. Install REST Client extension
+### 2. Open this file
+### 3. Click "Send Request" above each request
+###
+### Or use curl commands shown below each request
+###
+
+@baseUrl = http://localhost:7376
+@contentType = application/json
+
+###############################################
+# HEALTH CHECK
+###############################################
+
+### Health Check
+GET {{baseUrl}}/
+
+# curl: curl http://localhost:7376/
+
+###############################################
+# USER CRUD API TESTS
+###############################################
+
+### List all users
+GET {{baseUrl}}/api/users
+
+# curl: curl http://localhost:7376/api/users
+
+### Get users with pagination
+GET {{baseUrl}}/api/users?limit=5&skip=0
+
+# curl: curl "http://localhost:7376/api/users?limit=5&skip=0"
+
+### Create a new user
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Charlie",
+  "email": "charlie@example.com",
+  "age": 35
+}
+
+# curl: curl -X POST http://localhost:7376/api/users \
+#   -H "Content-Type: application/json" \
+#   -d '{"name":"Charlie","email":"charlie@example.com","age":35}'
+
+### Get specific user
+GET {{baseUrl}}/api/users/1
+
+# curl: curl http://localhost:7376/api/users/1
+
+### Update user
+PUT {{baseUrl}}/api/users/1
+Content-Type: {{contentType}}
+
+{
+  "name": "Alice Updated",
+  "age": 31
+}
+
+# curl: curl -X PUT http://localhost:7376/api/users/1 \
+#   -H "Content-Type: application/json" \
+#   -d '{"name":"Alice Updated","age":31}'
+
+### Delete user
+DELETE {{baseUrl}}/api/users/2
+
+# curl: curl -X DELETE http://localhost:7376/api/users/2
+
+###############################################
+# WEBSOCKET TESTING
+###############################################
+
+###
+# WebSocket Testing Instructions:
+#
+# Option 1: Use browser console
+# --------------------------------
+# 1. Open http://localhost:7376/docs in browser
+# 2. Open browser console (F12)
+# 3. Run:
+#    const ws = new WebSocket('ws://localhost:7376/ws/chat');
+#    ws.onmessage = (event) => console.log('Received:', JSON.parse(event.data));
+#    ws.send('Hello from browser!');
+#
+# Option 2: Use websocat command line tool
+# ------------------------------------------
+# Install: cargo install websocat
+# Run: websocat ws://localhost:7376/ws/chat
+#
+# Option 3: Use Python
+# --------------------
+# Run: python test_websocket_client.py
+#
+
+###############################################
+# OPENAPI SPEC TESTS
+###############################################
+
+### Get OpenAPI spec
+GET {{baseUrl}}/openapi.json
+
+# curl: curl http://localhost:7376/openapi.json
+
+### Interactive API documentation
+### Open in browser: http://localhost:7376/docs
+
+### Alternative API docs (Scalar)
+### Open in browser: http://localhost:7376/redoc
+
+###############################################
+# ERROR HANDLING TESTS
+###############################################
+
+### Test 404 error
+GET {{baseUrl}}/api/nonexistent
+
+# Should return: 404 Not Found
+
+### Test validation error
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "",
+  "email": "invalid-email"
+}
+
+# Should return: 422 Validation Error
+
+###############################################
+# PERFORMANCE TESTS
+###############################################
+
+### Concurrent requests test
+### Run this in multiple terminals
+GET {{baseUrl}}/api/users?limit=100
+
+# curl: curl -w "@curl-format.txt" http://localhost:7376/api/users?limit=100
+
+### Expected response time: < 100ms

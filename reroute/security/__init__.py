@@ -29,6 +29,18 @@ from .validation import (
     PasswordStrength,
 )
 
+# Security headers from local headers module
+from .headers import (
+    SecurityHeadersConfig,
+    SecurityHeadersFactory,
+    detect_environment,
+    Environment,
+    ContentSecurityPolicy,
+    CSPDirective,
+    PermissionsPolicy,
+    create_security_headers_from_config,
+)
+
 __all__ = [
     # Crypto
     "hash_password",
@@ -49,4 +61,13 @@ __all__ = [
     "check_password_strength",
     "ValidationResult",
     "PasswordStrength",
+    # Security Headers
+    "SecurityHeadersConfig",
+    "SecurityHeadersFactory",
+    "detect_environment",
+    "Environment",
+    "ContentSecurityPolicy",
+    "CSPDirective",
+    "PermissionsPolicy",
+    "create_security_headers_from_config",
 ]

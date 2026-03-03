@@ -1,0 +1,45 @@
+{# Auto-generated route from OpenAPI specification #}
+{# Path: {{ operation.path }} | Method: {{ operation.method.upper() }} #}
+{# Operation ID: {{ operation.operation_id or 'N/A' }} #}
+
+from reroute import RouteBase
+from fastapi import Path, Query, Body, Header, Cookie, Form, File, UploadFile
+from fastapi.responses import JSONResponse
+from typing import Optional, Any, List, Dict
+from pydantic import BaseModel
+
+
+class {{ class_name }}(RouteBase):
+    """Route handler for {{ operation.method.upper() }} {{ operation.path }}.
+
+    {% if operation.summary %}
+    {{ operation.summary }}
+
+    {% endif %}
+    {% if operation.description %}
+    {{ operation.description }}
+    {% endif %}
+    """
+
+    tag = "{{ route_name | capitalize }}"
+
+    def {{ operation.method }}(self{% for param in operation.parameters %}{% if param.in_ == 'path' %}, {{ param.name }}: {{ param.type_ }} = Path(..., description="{{ param.description or param.name }}"){% elif param.in_ == 'query' %}, {{ param.name }}: {{ param.type_ }} = Query(..., description="{{ param.description or param.name }}"){% elif param.in_ == 'header' %}, {{ param.name }}: {{ param.type_ }} = Header(..., description="{{ param.description or param.name }}"){% elif param.in_ == 'cookie' %}, {{ param.name }}: {{ param.type_ }} = Cookie(..., description="{{ param.description or param.name }}"){% elif param.in_ == 'formData' %}{% if 'UploadFile' in param.type_ or ('file' in param.name.lower() and param.format_ == 'binary') %}, {{ param.name }}: {{ param.type_ }} = File(..., description="{{ param.description or param.name }}"){% else %}, {{ param.name }}: {{ param.type_ }} = Form(..., description="{{ param.description or param.name }}"){% endif %}{% endif %}{% endfor %}{% if operation.request_body and not operation.has_form_data %}, body: Body = None{% endif %}) -> JSONResponse:
+        """Handle {{ operation.method.upper() }} request on {{ operation.path }}.
+
+        Returns:
+            Response data
+        """
+        {# TODO: Implement route logic #}
+        {% if operation.method == "get" %}
+        return JSONResponse(content={"message": "GET {{ operation.path }} - TODO: Implement"})
+        {% elif operation.method == "post" %}
+        return JSONResponse(content={"message": "POST {{ operation.path }} - TODO: Implement"}, status_code=201)
+        {% elif operation.method == "put" %}
+        return JSONResponse(content={"message": "PUT {{ operation.path }} - TODO: Implement"})
+        {% elif operation.method == "patch" %}
+        return JSONResponse(content={"message": "PATCH {{ operation.path }} - TODO: Implement"})
+        {% elif operation.method == "delete" %}
+        return JSONResponse(content={"message": "DELETE {{ operation.path }} - TODO: Implement"}, status_code=204)
+        {% else %}
+        return JSONResponse(content={"message": "{{ operation.method.upper() }} {{ operation.path }} - TODO: Implement"})
+        {% endif %}

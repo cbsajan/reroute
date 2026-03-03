@@ -1,0 +1,106 @@
+# Sample OpenAPI Specification for Import Testing
+# Save as: test_spec.yaml
+
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+  description: Sample API for testing OpenAPI import feature
+
+servers:
+  - url: http://localhost:7376/api/v1
+
+paths:
+  /products:
+    get:
+      operationId: getProducts
+      summary: List all products
+      tags:
+        - Products
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Max number of products
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+    post:
+      operationId: createProduct
+      summary: Create a product
+      tags:
+        - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: Product created
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      summary: Get product by ID
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        description:
+          type: string
+        in_stock:
+          type: boolean
+      required:
+        - id
+        - name
+        - price
+
+    ProductCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        description:
+          type: string
+        in_stock:
+          type: boolean
+          default: true
+      required:
+        - name
+        - price
