@@ -7,7 +7,7 @@ Integrates REROUTE's file-based routing with FastAPI.
 import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
-from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie
+from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie, Form
 from fastapi.params import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -334,45 +334,56 @@ class FastAPIAdapter:
             # Get the default value (which should be our ParamBase instance)
             default_value = param.default
 
-            # Check if this is a REROUTE parameter injection
-            if isinstance(default_value, Query):
+            # Skip if no default value (not a REROUTE/FastAPI param)
+            if default_value is inspect.Parameter.empty:
+                continue
+
+            # Check if this is a FastAPI parameter injection by checking for the 'in_' attribute
+            if not hasattr(default_value, 'in_'):
+                # Not a FastAPI param, skip
+                continue
+
+            # Extract based on parameter location
+            param_in = getattr(default_value, 'in_', None)
+
+            if param_in == 'query':
                 # Extract from query parameters
                 value = query_params.get(param_name)
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and getattr(default_value, 'required', False):
                     raise ValueError(f"Required query parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, FastAPIPath):
+            elif param_in == 'path':
                 # Extract from path parameters
                 value = path_params.get(param_name)
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and getattr(default_value, 'required', False):
                     raise ValueError(f"Required path parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Header):
+            elif param_in == 'header':
                 # Extract from headers (case-insensitive)
                 header_key = param_name.replace('_', '-')
                 value = headers.get(header_key.lower())
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and getattr(default_value, 'required', False):
                     raise ValueError(f"Required header '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Cookie):
+            elif param_in == 'cookie':
                 # Extract from cookies
                 value = cookies.get(param_name)
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and getattr(default_value, 'required', False):
                     raise ValueError(f"Required cookie '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Body):
+            elif param_in == 'body':
                 # Extract from request body
                 try:
                     body_data = await request.json()
@@ -388,18 +399,20 @@ class FastAPIAdapter:
 
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if default_value.required:
+                    if getattr(default_value, 'required', False):
                         raise ValueError(f"Invalid request body for parameter '{param_name}': {str(e)}")
-                    extracted_params[param_name] = default_value.default if default_value.default is not ... else None
+                    default = getattr(default_value, 'default', ...)
+                    extracted_params[param_name] = default if default is not ... else None
 
-            elif isinstance(default_value, Form):
+            elif param_in == 'formData':
                 # Extract from form data
                 try:
                     form_data = await request.form()
                     value = form_data.get(param_name)
-                    if value is None and default_value.default is not ...:
-                        value = default_value.default
-                    elif value is None and default_value.required:
+                    default = getattr(default_value, 'default', ...)
+                    if value is None and default is not ...:
+                        value = default
+                    elif value is None and getattr(default_value, 'required', False):
                         raise ValueError(f"Required form field '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
