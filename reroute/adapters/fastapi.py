@@ -7,7 +7,7 @@ Integrates REROUTE's file-based routing with FastAPI.
 import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Query, Path, Header, Body, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -15,7 +15,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from reroute.core.router import Router
 from reroute.config import Config
 from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
-from reroute.params import Query, PathParam, Header, Body, Cookie
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -344,7 +343,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required query parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, PathParam):
+            elif isinstance(default_value, Path):
                 # Extract from path parameters
                 value = path_params.get(param_name)
                 if value is None and default_value.default is not ...:
