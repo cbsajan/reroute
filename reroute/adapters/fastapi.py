@@ -350,10 +350,14 @@ class FastAPIAdapter:
             if param_in == ParamTypes.query:
                 # Extract from query parameters
                 value = query_params.get(param_name)
-                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
-                    value = default_value.default
-                elif value is None and getattr(default_value, 'required', False):
-                    raise ValueError(f"Required query parameter '{param_name}' is missing")
+                # Check if value is missing (None or not provided)
+                if value is None or (hasattr(request.query_params, 'getlist') and param_name not in request.query_params):
+                    # For required params, raise error if missing
+                    if default_value.is_required():
+                        raise ValueError(f"Required query parameter '{param_name}' is missing")
+                    # For optional params, use default if available
+                    if hasattr(default_value, 'default') and default_value.default is not ...:
+                        value = default_value.default
                 extracted_params[param_name] = value
 
             elif param_in == ParamTypes.path:
@@ -361,7 +365,7 @@ class FastAPIAdapter:
                 value = path_params.get(param_name)
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and getattr(default_value, 'required', False):
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required path parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
@@ -371,7 +375,7 @@ class FastAPIAdapter:
                 value = headers.get(header_key.lower())
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and getattr(default_value, 'required', False):
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required header '{param_name}' is missing")
                 extracted_params[param_name] = value
 
@@ -380,7 +384,7 @@ class FastAPIAdapter:
                 value = cookies.get(param_name)
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and getattr(default_value, 'required', False):
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required cookie '{param_name}' is missing")
                 extracted_params[param_name] = value
 
@@ -400,7 +404,7 @@ class FastAPIAdapter:
 
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if getattr(default_value, 'required', False):
+                    if default_value.is_required():
                         raise ValueError(f"Invalid request body for parameter '{param_name}': {str(e)}")
                     default = getattr(default_value, 'default', ...)
                     extracted_params[param_name] = default if default is not ... else None
@@ -413,7 +417,7 @@ class FastAPIAdapter:
                     default = getattr(default_value, 'default', ...)
                     if value is None and default is not ...:
                         value = default
-                    elif value is None and getattr(default_value, 'required', False):
+                    elif value is None and default_value.is_required():
                         raise ValueError(f"Required form field '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
@@ -428,11 +432,11 @@ class FastAPIAdapter:
                     default = getattr(default_value, 'default', ...)
                     if value is None and default is not ...:
                         value = default
-                    elif value is None and getattr(default_value, 'required', False):
+                    elif value is None and default_value.is_required():
                         raise ValueError(f"Required file '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if getattr(default_value, 'required', False):
+                    if default_value.is_required():
                         raise ValueError(f"Invalid file upload for parameter '{param_name}': {str(e)}")
 
         return extracted_params
