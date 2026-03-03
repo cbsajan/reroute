@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from reroute.core.router import Router
 from reroute.config import Config
 from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
+from reroute.params import Query, PathParam, Header, Body, Cookie
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
