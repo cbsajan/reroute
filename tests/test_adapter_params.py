@@ -6,8 +6,7 @@ import pytest
 import inspect
 from pathlib import Path as PathType
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import Request
-from reroute.params import Query, Path, Header, Body
+from fastapi import Request, Query, Path, Header, Body
 from reroute.adapters.fastapi import FastAPIAdapter
 
 

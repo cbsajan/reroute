@@ -7,7 +7,7 @@ Integrates REROUTE's file-based routing with FastAPI.
 import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
-from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie, Form
+from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie, Form, File
 from fastapi.params import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -419,18 +419,19 @@ class FastAPIAdapter:
                     if default_value.required:
                         raise ValueError(f"Invalid form data for parameter '{param_name}': {str(e)}")
 
-            elif isinstance(default_value, File):
+            elif param_in == 'file':
                 # Extract file upload
                 try:
                     form_data = await request.form()
                     value = form_data.get(param_name)
-                    if value is None and default_value.default is not ...:
-                        value = default_value.default
-                    elif value is None and default_value.required:
+                    default = getattr(default_value, 'default', ...)
+                    if value is None and default is not ...:
+                        value = default
+                    elif value is None and getattr(default_value, 'required', False):
                         raise ValueError(f"Required file '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if default_value.required:
+                    if getattr(default_value, 'required', False):
                         raise ValueError(f"Invalid file upload for parameter '{param_name}': {str(e)}")
 
         return extracted_params
