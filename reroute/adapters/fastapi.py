@@ -8,6 +8,7 @@ import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
 from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie, Form, File
+from fastapi.params import ParamTypes
 from fastapi.params import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -346,7 +347,7 @@ class FastAPIAdapter:
             # Extract based on parameter location
             param_in = getattr(default_value, 'in_', None)
 
-            if param_in == 'query':
+            if param_in == ParamTypes.query:
                 # Extract from query parameters
                 value = query_params.get(param_name)
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
@@ -355,7 +356,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required query parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif param_in == 'path':
+            elif param_in == ParamTypes.path:
                 # Extract from path parameters
                 value = path_params.get(param_name)
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
@@ -364,7 +365,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required path parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif param_in == 'header':
+            elif param_in == ParamTypes.header:
                 # Extract from headers (case-insensitive)
                 header_key = param_name.replace('_', '-')
                 value = headers.get(header_key.lower())
@@ -374,7 +375,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required header '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif param_in == 'cookie':
+            elif param_in == ParamTypes.cookie:
                 # Extract from cookies
                 value = cookies.get(param_name)
                 if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
@@ -383,7 +384,7 @@ class FastAPIAdapter:
                     raise ValueError(f"Required cookie '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif param_in == 'body':
+            elif param_in == ParamTypes.body:
                 # Extract from request body
                 try:
                     body_data = await request.json()
@@ -404,7 +405,7 @@ class FastAPIAdapter:
                     default = getattr(default_value, 'default', ...)
                     extracted_params[param_name] = default if default is not ... else None
 
-            elif param_in == 'formData':
+            elif param_in == ParamTypes.formData:
                 # Extract from form data
                 try:
                     form_data = await request.form()
@@ -419,7 +420,7 @@ class FastAPIAdapter:
                     if default_value.required:
                         raise ValueError(f"Invalid form data for parameter '{param_name}': {str(e)}")
 
-            elif param_in == 'file':
+            elif param_in == ParamTypes.file:
                 # Extract file upload
                 try:
                     form_data = await request.form()
