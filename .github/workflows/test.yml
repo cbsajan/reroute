@@ -46,11 +46,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[fastapi,dev,security]"
-          pip install httpx python-dotenv
+          uv pip install --system -e ".[fastapi,dev,security]"
+          uv pip install --system httpx python-dotenv
 
       - name: Run tests
         run: |

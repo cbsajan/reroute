@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         working-directory: ./docs
         run: |
-          uv pip install mkdocs mkdocs-material
+          uv pip install --system mkdocs mkdocs-material
 
       - name: Deploy to GitHub Pages
         working-directory: ./docs
