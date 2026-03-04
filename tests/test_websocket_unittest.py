@@ -143,6 +143,8 @@ class TestWebSocketRouteSendMethods(unittest.TestCase):
         import asyncio
 
         async def run_test():
+            # Set mock id to match the key used in _connections
+            self.mock_ws.id = "test-123"
             self.route._connections["test-123"] = self.mock_ws
             await self.route.close(self.mock_ws, code=1000, reason="Closed")
             self.mock_ws.close.assert_called_once_with(1000, "Closed")
@@ -159,6 +161,7 @@ class TestConnectionManagerMethods(unittest.TestCase):
         self.manager = WebSocketConnectionManager()
         self.mock_ws = MagicMock()
         self.mock_ws.send_json = AsyncMock()
+        self.mock_ws.send = AsyncMock()
 
     def test_connect_adds_connection(self):
         """Test connecting adds websocket."""
@@ -188,8 +191,8 @@ class TestConnectionManagerMethods(unittest.TestCase):
 
         async def run_test():
             await self.manager.connect(self.mock_ws, "test-id")
-            await self.manager.send_personal("Hello", "test-id")
-            self.mock_ws.send_json.assert_called_once_with("Hello")
+            await self.manager.send_personal({"message": "Hello"}, "test-id")
+            self.mock_ws.send_json.assert_called_once_with({"message": "Hello"})
 
         asyncio.run(run_test())
 
