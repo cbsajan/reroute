@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reroute"
+# Version 0.3.0 - uv-only package manager, Flask removed
 version = "0.3.0"
 description = "File-based routing for Python backend frameworks (FastAPI)"
 readme = "README.md"
