@@ -31,11 +31,15 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          enable-cache: true
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[fastapi,dev]"
-          pip install httpx python-dotenv
+          uv pip install --system -e ".[fastapi,dev,security]"
+          uv pip install --system httpx python-dotenv
 
       - name: Run tests
         run: |
@@ -90,10 +94,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+
       - name: Install build dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine wheel setuptools
+          uv pip install --system build twine wheel setuptools
 
       - name: Build package
         run: |
