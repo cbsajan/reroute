@@ -31,11 +31,11 @@ Create your first REROUTE API in just 5 minutes!
     Prefer watching? Here's a 2-minute video showing the complete process:
 
     <video width="100%" height="auto" controls style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <source src="https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4" type="video/mp4">
+        <source src="https://github.com/cbsajan/reroute/raw/refs/heads/main/assets/demo.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
 
-    **[Download video](https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4)** | **[Watch on GitHub](https://github.com/cbsajan/reroute/blob/main/reroute/assets/demo.mp4)**
+    **[Download video](https://github.com/cbsajan/reroute/raw/refs/heads/main/assets/demo.mp4)** | **[Watch on GitHub](https://github.com/cbsajan/reroute/blob/main/reroute/assets/demo.mp4)**
 
     *Video covers: Project initialization, first API endpoint, and testing with Swagger UI*
 

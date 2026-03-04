@@ -178,7 +178,7 @@ uv sync
     See REROUTE in action with our video tutorial:
 
     <video width="100%" height="auto" controls style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <source src="https://github.com/cbsajan/reroute/raw/main/reroute/assets/demo.mp4" type="video/mp4">
+        <source src="https://github.com/cbsajan/reroute/raw/refs/heads/main/assets/demo.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
 
