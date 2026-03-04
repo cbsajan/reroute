@@ -30,16 +30,18 @@ Real-world applications with more complexity.
 ### Hard (45-60 minutes each)
 Advanced features for production applications.
 
-- [Authentication](hard/authentication.md) - JWT tokens and API keys *(Coming Soon)*
-- [Database Integration](hard/database-integration.md) - SQLAlchemy models *(Coming Soon)*
-- [WebSockets](hard/websockets.md) - Real-time communication *(Coming Soon)*
+Coming soon:
+- Authentication - JWT tokens and API keys
+- Database Integration - SQLAlchemy models
+- WebSockets - Real-time communication
 
 ### Difficult (60+ minutes each)
 Production-ready implementations.
 
-- [Production Deployment](difficult/production-deployment.md) - Docker, cloud hosting *(Coming Soon)*
-- [Performance Optimization](difficult/performance-optimization.md) - Caching strategies *(Coming Soon)*
-- [Security Hardening](difficult/security-hardening.md) - OWASP compliance *(Coming Soon)*
+Coming soon:
+- Production Deployment - Docker, cloud hosting
+- Performance Optimization - Caching strategies
+- Security Hardening - OWASP compliance
 
 ---
 
@@ -139,6 +141,6 @@ Choose your starting point:
 1. **Complete Beginner** → Start with [Hello World](very-easy/hello-world.md)
 2. **Some Experience** → Jump to [Dynamic Routes](easy/dynamic-routes.md)
 3. **Know the Basics** → Go to [CRUD Application](medium/crud-app.md)
-4. **Production Ready** → Check [Production Deployment](difficult/production-deployment.md)
+4. **Production Ready** → Explore the [Guides](../guides/index.md) section
 
 Happy coding!

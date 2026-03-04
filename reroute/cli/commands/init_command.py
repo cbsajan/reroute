@@ -45,14 +45,14 @@ def init(name, framework, package_manager, config, host, port, description, data
 
     Creates project structure with:
     - app/routes/ directory for file-based routing
-    - Main application file (FastAPI/Flask)
+    - Main application file (FastAPI)
     - Configuration files
     - Example route
 
     Examples:
         reroute init
-        reroute init myapi --framework fastapi
-        reroute init myapi --framework fastapi --database postgresql
+        reroute init myapi
+        reroute init myapi --database postgresql
         reroute init myapi -db sqlite
     """
     click.secho("\n" + "="*50, fg='cyan', bold=True)

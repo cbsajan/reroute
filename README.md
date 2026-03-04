@@ -18,7 +18,7 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 
 - **File-based Routing**: Folder structure maps directly to URL paths
 - **Class-based Routes**: Clean, organized route handlers with lifecycle hooks
-- **Multi-framework Support**: Works with FastAPI and Flask (Django coming soon)
+- **FastAPI Integration**: Full async support with automatic OpenAPI documentation
 - **Parameter Injection**: FastAPI-style parameter extraction (Query, Path, Header, Body, etc.)
 - **Pydantic Models**: Generate data validation models with CLI
 - **Interactive CLI**: Next.js-style project scaffolding with beautiful prompts
@@ -31,11 +31,8 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 ## Installation
 
 ```bash
-# With FastAPI
+# Install with FastAPI
 pip install reroute[fastapi]
-
-# With Flask
-pip install reroute[flask]
 
 # Or using uv (faster)
 uv pip install reroute[fastapi]
@@ -45,7 +42,7 @@ uv pip install reroute[fastapi]
 
 ```bash
 # Create a new project
-reroute init myapi --framework fastapi
+reroute init myapi
 
 # Navigate to project
 cd myapi
@@ -65,7 +62,7 @@ Watch REROUTE in action! Check out our demo video to see:
 - Project initialization with CLI
 - File-based routing in action
 - Security utilities (password hashing, JWT, validation)
-- Integration with FastAPI and Flask
+- Integration with FastAPI
 
 <div align="center">
   <video width="800" height="450" controls>

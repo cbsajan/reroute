@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "reroute"
 version = "0.2.5"
-description = "File-based routing for Python backend frameworks (FastAPI, Flask)"
+description = "File-based routing for Python backend frameworks (FastAPI)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "C B Sajan", email = "cloud.ckhathri@gmail.com"}
 ]
-keywords = ["fastapi", "flask", "routing", "file-based", "web-framework"]
+keywords = ["fastapi", "routing", "file-based", "web-framework", "async"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Framework :: FastAPI",
-    "Framework :: Flask",
+    "Framework :: AsyncIO",
 ]
 
 dependencies = [

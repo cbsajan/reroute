@@ -5,7 +5,7 @@ prerequisites:
   - link: ../../start-here.md
   - link: ../easy/http-methods.md
   - link: crud-app.md
-next: ../hard/authentication.md
+next: ../../guides/index.md
 ---
 
 # Error Handling
@@ -977,16 +977,15 @@ In this tutorial, you learned:
 ## Next Steps
 
 **Continue learning:**
-- [Authentication](../hard/authentication.md) - JWT authentication *(Coming Soon)*
-- [Database Integration](../hard/database-integration.md) - Error handling with databases *(Coming Soon)*
-- [Production Deployment](../../deployment/production.md) - Production error monitoring
+- Explore [Guides](../../guides/index.md) for advanced topics
+- Check [Deployment Guide](../../deployment/production.md) - Production error monitoring
+
+**Coming soon:**
+- Authentication - JWT authentication
+- Database Integration - Error handling with databases
 
 **Practice ideas:**
 - Implement error tracking (Sentry, Rollbar)
 - Create error documentation for API consumers
 - Build error dashboard for monitoring
 - Add rate limiting with helpful error messages
-
----
-
-**Ready to secure your API?** Continue to [Authentication](../hard/authentication.md)!
