@@ -31,10 +31,11 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 ## Installation
 
 ```bash
-# Install with FastAPI
-pip install reroute[fastapi]
+# Install uv (if you don't have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
-# Or using uv (faster)
+# Install REROUTE with FastAPI
 uv pip install reroute[fastapi]
 ```
 
@@ -47,11 +48,12 @@ reroute init myapi
 # Navigate to project
 cd myapi
 
-# Install dependencies
-uv sync  # or: pip install -r requirements.txt
+# Create virtual environment and install dependencies
+uv venv
+uv sync
 
 # Run the server
-python main.py
+uv run main.py
 ```
 
 Visit `http://localhost:7376/docs` for interactive API documentation.

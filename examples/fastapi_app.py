@@ -55,7 +55,7 @@ def root():
     """Root endpoint"""
     return {
         "message": "Welcome to REROUTE + FastAPI",
-        "framework": "REROUTE v0.1.0",
+        "framework": "REROUTE v0.3.0",
         "docs": "/docs",
         "routes": {
             "/api/v1/user": "REROUTE file-based route with base path"

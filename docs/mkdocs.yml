@@ -160,5 +160,5 @@ extra:
       link: https://github.com/cbsajan/reroute
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/reroute
-  announcement: "REROUTE v0.2.5 is out! Flask adapter removed, focusing exclusively on FastAPI."
+  announcement: "REROUTE v0.3.0 is out! uv-only package manager for 10-100x faster installations. Flask adapter removed."
   announcement_link: "/reroute/changelog/"
