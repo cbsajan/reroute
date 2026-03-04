@@ -171,8 +171,10 @@ Use `API_BASE_PATH` to prefix all routes (e.g., `/api/v1`).
 | Framework | Status | OpenAPI Docs |
 |-----------|--------|--------------|
 | FastAPI | Fully Supported | Swagger UI, ReDoc |
-| Flask | Fully Supported | Swagger UI, Scalar UI |
+| Flask | Removed in v0.3.0 | - |
 | Django | Coming Soon | - |
+
+**Note:** As of v0.3.0, REROUTE focuses exclusively on FastAPI for better async support, automatic OpenAPI documentation, and active maintenance.
 
 ## License
 
