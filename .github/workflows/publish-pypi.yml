@@ -213,10 +213,5 @@ jobs:
           echo "Package: https://pypi.org/project/reroute/$VERSION/"
           echo "Tag: https://github.com/cbsajan/reroute/releases/tag/v$VERSION"
 
-      - name: Trigger docs deployment
-        if: success()
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
-          repository: cbsajan/reroute-docs
-          event-type: docs-deploy
+      # Note: Documentation deployment now happens automatically via deploy-docs.yml
+      # when pushing to main branch. No separate dispatch needed.
