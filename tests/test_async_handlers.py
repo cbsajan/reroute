@@ -7,7 +7,7 @@ Verifies that async route methods are properly awaited.
 import pytest
 import asyncio
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Query, Body
 from fastapi.testclient import TestClient
 from reroute import FastAPIAdapter, RouteBase, Config
 
@@ -91,8 +91,6 @@ class TestAsyncHandlers:
 
     def test_async_with_params(self, fastapi_app_with_adapter):
         """Test async handler with parameters."""
-        from reroute.params import Query
-
         app, adapter = fastapi_app_with_adapter
 
         # Create test route with async handler and parameters
@@ -128,7 +126,6 @@ class TestAsyncHandlers:
 
     def test_async_post_with_body(self, fastapi_app_with_adapter):
         """Test async POST handler with body."""
-        from reroute.params import Body
         from pydantic import BaseModel
 
         class UserCreate(BaseModel):
