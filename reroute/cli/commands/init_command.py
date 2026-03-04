@@ -25,10 +25,7 @@ jinja_env = Environment(
 @click.command()
 @click.argument('name', required=False)
 @click.option('--framework', default=None,
-              help='Backend framework (fastapi or flask)')
-@click.option('--package-manager', default='uv',
-              type=click.Choice(['uv', 'pip']),
-              help='Package manager (default: uv)')
+              help='Backend framework (fastapi)')
 @click.option('--config',
               type=click.Choice(['dev', 'prod'], case_sensitive=False),
               default='dev',
@@ -39,25 +36,28 @@ jinja_env = Environment(
 @click.option('--database', '-db', default=None,
               type=click.Choice(['postgresql', 'mysql', 'sqlite', 'mongodb', 'none'], case_sensitive=False),
               help='Database type (postgresql, mysql, sqlite, mongodb, or none)')
-def init(name, framework, package_manager, config, host, port, description, database):
+def init(name, framework, config, host, port, description, database):
     """
     Initialize a new REROUTE project.
 
     Creates project structure with:
     - app/routes/ directory for file-based routing
-    - Main application file (FastAPI/Flask)
+    - Main application file (FastAPI)
     - Configuration files
     - Example route
 
     Examples:
         reroute init
-        reroute init myapi --framework fastapi
-        reroute init myapi --framework fastapi --database postgresql
+        reroute init myapi
+        reroute init myapi --database postgresql
         reroute init myapi -db sqlite
     """
     click.secho("\n" + "="*50, fg='cyan', bold=True)
     click.secho("REROUTE Project Initialization", fg='cyan', bold=True)
     click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    # REROUTE v0.3.0+ uses uv exclusively
+    package_manager = 'uv'
 
     # Interactive prompts if not provided via flags
     if not name:
@@ -84,7 +84,7 @@ def init(name, framework, package_manager, config, host, port, description, data
     if not framework:
         framework = inquirer.select(
             message="Which framework would you like to use?",
-            choices=['fastapi', 'flask']
+            choices=['fastapi']
         ).execute()
         if not framework:
             click.secho("\n[ERROR] Framework selection is required!", fg='red', bold=True)
@@ -92,8 +92,8 @@ def init(name, framework, package_manager, config, host, port, description, data
     else:
         # Validate and normalize CLI flag input (case-insensitive)
         framework_lower = framework.lower()
-        if framework_lower not in ['fastapi', 'flask']:
-            click.secho(f"\n[ERROR] Invalid framework: '{framework}'. Choose 'fastapi' or 'flask'.", fg='red', bold=True)
+        if framework_lower not in ['fastapi']:
+            click.secho(f"\n[ERROR] Invalid framework: '{framework}'. REROUTE uses FastAPI exclusively.", fg='red', bold=True)
             sys.exit(1)
         framework = framework_lower
 
@@ -219,21 +219,13 @@ def init(name, framework, package_manager, config, host, port, description, data
             click.secho(f"    {click.style('4.', fg='yellow')} Run: {click.style('reroute db upgrade', fg='bright_white')}")
             click.secho("")
 
-        # Show next steps using utility
-        if package_manager == 'uv':
-            steps = [
-                f"cd {name}",
-                "uv venv",
-                "uv sync",
-                "uv run main.py",
-            ]
-        else:
-            steps = [
-                f"cd {name}",
-                "python -m venv venv",
-                "pip install -r requirements.txt",
-                "python main.py",
-            ]
+        # Show next steps using utility (uv only as of v0.3.0)
+        steps = [
+            f"cd {name}",
+            "uv venv",
+            "uv sync",
+            "uv run main.py",
+        ]
         next_steps(steps)
 
         click.secho("Happy Coding!", fg='yellow', bold=True)
@@ -420,8 +412,8 @@ def _generate_env_file(project_dir: Path, name: str, db_type: str = None, packag
         }
         db_url = default_urls.get(db_type, '')
 
-    # Determine install command based on package manager
-    install_cmd = 'uv sync' if package_manager == 'uv' else 'pip install -e .'
+    # REROUTE v0.3.0+ uses uv exclusively
+    install_cmd = 'uv sync'
 
     content = template.render(
         project_name=name,

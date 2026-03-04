@@ -24,7 +24,11 @@ share/python-wheels/
 MANIFEST
 archive/
 RestAPI/
-docs/
+internal-docs/
+
+# Documentation build output
+docs/site/
+docs/.cache/
 
 # Virtual environments
 venv/
@@ -92,4 +96,14 @@ logs/
 /update_version.bat
 
 # Personal developer documentation (not for GitHub)
-docs/developer/
+# (Covered by internal-docs/ above)
+docs/development/
+docs/IMPLEMENTATION_STATUS.md
+docs/testing-plan.md
+ARCHIVE_INSTRUCTIONS.md
+
+# Test applications
+test_App/
+examples/dummy/
+nul
+/logsfromgithub.txt

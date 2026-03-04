@@ -10,6 +10,7 @@ import inspect
 import logging
 from reroute.core.loader import RouteLoader
 from reroute.core.base import RouteBase
+from reroute.core.websocket import WebSocketRoute
 from reroute.config import Config
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class Router:
         self.loader = RouteLoader(self.routes_dir)
         self.routes: Dict[str, Dict[str, Callable]] = {}
 
-    def discover_routes(self) -> List[str]:
+    def discover_routes(self) -> List[tuple]:
         """
         Discover all route folders in the routes directory.
 
@@ -45,14 +46,15 @@ class Router:
         Supports nested routes with unlimited depth.
 
         Returns:
-            List of discovered route paths
+            List of tuples: [(folder_path, url_path), ...]
 
         Example:
             routes/
-                user/page.py           -> /user
-                product/page.py        -> /product
-                user/profile/page.py   -> /user/profile
-                api/v1/users/page.py   -> /api/v1/users
+                user/page.py           -> ("", "/")
+                product/page.py        -> ("product", "/product")
+                user/profile/page.py   -> ("user/profile", "/user/profile")
+                api/v1/users/page.py   -> ("api/v1/users", "/api/v1/users")
+                api/users/_id/page.py  -> ("api/users/_id", "/api/users/{id}")
         """
         discovered_routes = []
 
@@ -69,25 +71,47 @@ class Router:
             if any(part in self.config.Internal.IGNORE_FOLDERS for part in relative_path.parts):
                 continue
 
-            # Convert path to route (e.g., "user/profile" -> "/user/profile")
+            # Get the original folder path (for file loading)
             if str(relative_path) == ".":
                 # Root level route
-                route_path = "/"
+                folder_path = ""
             else:
                 # Security: Normalize and sanitize the path
                 # - Replace backslashes with forward slashes
                 # - Remove any ".." or "." components
                 # - Collapse multiple slashes
                 import posixpath
+                import re
                 raw_path = str(relative_path).replace("\\", "/")
-                normalized = posixpath.normpath(raw_path)
+                folder_path = posixpath.normpath(raw_path)
                 # Ensure no path traversal attempts remain
-                if ".." in normalized or normalized.startswith("/"):
+                if ".." in folder_path or folder_path.startswith("/"):
                     logger.warning(f"Suspicious route path detected: {relative_path}")
                     continue
-                route_path = "/" + normalized
 
-            discovered_routes.append(route_path)
+            # Convert to URL path (for FastAPI registration)
+            # Support two patterns for dynamic path parameters:
+            # 1. Underscore prefix: _id -> {id}, _user_id -> {user_id} (private/explicit)
+            # 2. Bracket notation: [id] -> {id}, [user_id] -> {user_id} (Next.js style)
+            if folder_path == "":
+                url_path = "/"
+            else:
+                path_parts = folder_path.split("/")
+                converted_parts = []
+                for part in path_parts:
+                    # Pattern 1: Underscore prefix (_id, _user_id, _slug)
+                    if part.startswith("_") and len(part) > 1:
+                        param_name = part[1:]  # Remove underscore
+                        converted_parts.append(f"{{{param_name}}}")
+                    # Pattern 2: Bracket notation ([id], [user_id], [slug])
+                    elif part.startswith("[") and part.endswith("]"):
+                        param_name = part[1:-1]  # Remove brackets
+                        converted_parts.append(f"{{{param_name}}}")
+                    else:
+                        converted_parts.append(part)
+                url_path = "/" + "/".join(converted_parts)
+
+            discovered_routes.append((folder_path, url_path))
 
         return discovered_routes
 
@@ -103,16 +127,8 @@ class Router:
         """
         discovered = self.discover_routes()
 
-        for route_path in discovered:
-            # Convert route path back to folder path
-            # "/user/profile" -> "user/profile"
-            # "/" -> ""
-            if route_path == "/":
-                folder_path = ""
-            else:
-                folder_path = route_path.lstrip("/")
-
-            # Build page file path
+        for folder_path, url_path in discovered:
+            # Build page file path using the original folder path
             if folder_path:
                 page_file = self.routes_dir / folder_path / "page.py"
             else:
@@ -129,13 +145,34 @@ class Router:
             route_instance = None
 
             # Check if module has a class-based route
-            # Look for classes that inherit from RouteBase or end with "Routes"
+            # Look for classes that inherit from RouteBase or WebSocketRoute
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 # Skip imported classes (like RouteBase itself)
                 if obj.__module__ != module.__name__:
                     continue
 
-                # Check if it's a route class
+                # Check if it's a WebSocket route class
+                is_websocket_class = False
+                try:
+                    is_websocket_class = issubclass(obj, WebSocketRoute)
+                except TypeError:
+                    pass
+
+                if is_websocket_class:
+                    # Instantiate the WebSocket route class
+                    route_instance = obj()
+
+                    # Store WebSocket routes without HTTP handlers
+                    self.routes[url_path] = {
+                        "handlers": {},  # Empty handlers dict for WebSocket
+                        "instance": route_instance,
+                        "type": "websocket"
+                    }
+                    if self.config.VERBOSE_LOGGING:
+                        logger.info(f"Registered WebSocket route: {url_path}")
+                    break  # Use the first matching class
+
+                # Check if it's an HTTP route class
                 is_route_class = False
                 try:
                     is_route_class = issubclass(obj, RouteBase)
@@ -155,22 +192,23 @@ class Router:
                     break  # Use the first matching class
 
             # If no class found, look for standalone functions (backward compatibility)
-            if not route_handlers:
+            if not route_handlers and route_instance is None:
                 for method in self.config.Internal.SUPPORTED_HTTP_METHODS:
                     if hasattr(module, method):
                         handler = getattr(module, method)
                         if callable(handler):
                             route_handlers[method] = handler
 
-            # Store the handlers for this route
+            # Store the handlers for this route (only for HTTP routes)
             if route_handlers:
-                self.routes[route_path] = {
+                self.routes[url_path] = {
                     "handlers": route_handlers,
-                    "instance": route_instance  # Store instance for lifecycle hooks
+                    "instance": route_instance,  # Store instance for lifecycle hooks
+                    "type": "http"
                 }
                 if self.config.VERBOSE_LOGGING:
                     route_type = "class-based" if route_instance else "function-based"
-                    logger.info(f"Registered {route_type} route: {route_path} with methods: {list(route_handlers.keys())}")
+                    logger.info(f"Registered {route_type} route: {url_path} with methods: {list(route_handlers.keys())}")
 
     def get_route_handler(self, path: str, method: str) -> Callable:
         """

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo-dark.svg" alt="REROUTE Logo" width="200">
+  <img src="https://raw.githubusercontent.com/cbsajan/reroute/main/assets/logo-light.svg" alt="REROUTE Logo" width="200">
   <h1>REROUTE</h1>
   <p><em>File-based routing for Python backends</em></p>
   <p><strong>Inspired by Next.js, powered by FastAPI/Flask</strong></p>
@@ -18,7 +18,7 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 
 - **File-based Routing**: Folder structure maps directly to URL paths
 - **Class-based Routes**: Clean, organized route handlers with lifecycle hooks
-- **Multi-framework Support**: Works with FastAPI and Flask (Django coming soon)
+- **FastAPI Integration**: Full async support with automatic OpenAPI documentation
 - **Parameter Injection**: FastAPI-style parameter extraction (Query, Path, Header, Body, etc.)
 - **Pydantic Models**: Generate data validation models with CLI
 - **Interactive CLI**: Next.js-style project scaffolding with beautiful prompts
@@ -31,13 +31,11 @@ REROUTE brings the simplicity of file-based routing to Python backend developmen
 ## Installation
 
 ```bash
-# With FastAPI
-pip install reroute[fastapi]
+# Install uv (if you don't have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
-# With Flask
-pip install reroute[flask]
-
-# Or using uv (faster)
+# Install REROUTE with FastAPI
 uv pip install reroute[fastapi]
 ```
 
@@ -45,19 +43,38 @@ uv pip install reroute[fastapi]
 
 ```bash
 # Create a new project
-reroute init myapi --framework fastapi
+reroute init myapi
 
 # Navigate to project
 cd myapi
 
-# Install dependencies
-uv sync  # or: pip install -r requirements.txt
+# Create virtual environment and install dependencies
+uv venv
+uv sync
 
 # Run the server
-python main.py
+uv run main.py
 ```
 
 Visit `http://localhost:7376/docs` for interactive API documentation.
+
+## 📺 Demo Video
+
+Watch REROUTE in action! Check out our demo video to see:
+- Project initialization with CLI
+- File-based routing in action
+- Security utilities (password hashing, JWT, validation)
+- Integration with FastAPI
+
+<div align="center">
+  <video width="800" height="450" controls>
+    <source src="assets/demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <p><em>Click to play demo video (643 KB)</em></p>
+</div>
+
+---
 
 ## Generate Routes with CLI
 
@@ -73,15 +90,25 @@ reroute create route --path /users --name User --methods GET,POST
 
 ## Documentation
 
-**[Complete Documentation](https://cbsajan.github.io/reroute-docs)** - Full guides, API reference, and examples
+**[Complete Documentation](https://cbsajan.github.io/reroute)** - Full guides, API reference, and examples
 
-Quick links:
-- [Getting Started](https://cbsajan.github.io/reroute-docs/latest/getting-started/quickstart/) - Installation and first route
-- [CLI Commands](https://cbsajan.github.io/reroute-docs/latest/cli/commands/) - Complete CLI reference
-- [Decorators](https://cbsajan.github.io/reroute-docs/latest/guides/decorators/) - Rate limiting, caching, validation
-- [Security](https://cbsajan.github.io/reroute-docs/latest/guides/security/) - Security headers and best practices
-- [API Reference](https://cbsajan.github.io/reroute-docs/latest/api/) - RouteBase, parameters, decorators, config
-- [Examples](https://cbsajan.github.io/reroute-docs/latest/examples/) - CRUD, authentication, rate limiting, caching
+### Build Documentation Locally
+
+```bash
+cd docs
+pip install -r requirements.txt
+mkdocs serve
+```
+
+Visit `http://127.0.0.1:8000` to view the documentation.
+
+### Quick Links
+- [Getting Started](https://cbsajan.github.io/reroute/latest/getting-started/quickstart/) - Installation and first route
+- [CLI Commands](https://cbsajan.github.io/reroute/latest/cli/commands/) - Complete CLI reference
+- [Decorators](https://cbsajan.github.io/reroute/latest/guides/decorators/) - Rate limiting, caching, validation
+- [Security](https://cbsajan.github.io/reroute/latest/guides/security/) - Security headers and best practices
+- [API Reference](https://cbsajan.github.io/reroute/latest/api/) - RouteBase, parameters, decorators, config
+- [Examples](https://cbsajan.github.io/reroute/latest/examples/) - CRUD, authentication, rate limiting, caching
 
 ## How It Works
 
@@ -157,7 +184,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **Documentation**: [https://cbsajan.github.io/reroute-docs](https://cbsajan.github.io/reroute-docs)
+- **Documentation**: [https://cbsajan.github.io/reroute](https://cbsajan.github.io/reroute)
 - **Issues**: [GitHub Issues](https://github.com/cbsajan/reroute/issues)
 - **PyPI**: [pypi.org/project/reroute](https://pypi.org/project/reroute)
 

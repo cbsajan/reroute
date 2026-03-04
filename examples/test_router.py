@@ -8,7 +8,8 @@ from pathlib import Path
 # Add reroute package to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from reroute import Router, DevConfig
+from reroute.core.router import Router
+from reroute.config import DevConfig
 
 
 def main():

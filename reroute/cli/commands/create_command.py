@@ -39,9 +39,11 @@ def generate():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
+@click.option('--with-tests', is_flag=True, default=False,
+              help='Generate pytest test file')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Preview changes without creating files')
-def generate_route(path, name, methods, http_test, dry_run):
+def generate_route(path, name, methods, http_test, with_tests, dry_run):
     """
     Generate a new route file.
 
@@ -165,6 +167,10 @@ def generate_route(path, name, methods, http_test, dry_run):
                 tests_dir = Path.cwd() / "tests"
                 clean_path = path.strip('/').replace('/', '_')
                 click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            if with_tests:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'test_{clean_path}.py'}", fg='cyan')
             click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
             click.echo()
             return
@@ -191,6 +197,12 @@ def generate_route(path, name, methods, http_test, dry_run):
             click.secho(f"[OK] HTTP test created: ", fg='green', bold=True, nl=False)
             click.secho(f"{http_file}", fg='cyan')
 
+        # Generate pytest test file if requested
+        if with_tests:
+            test_file = _generate_pytest_test_file(path, name, methods_list, 'route')
+            click.secho(f"[OK] Test file created: ", fg='green', bold=True, nl=False)
+            click.secho(f"{test_file}", fg='cyan')
+
         click.echo()
 
     except Exception as e:
@@ -209,11 +221,13 @@ def generate_route(path, name, methods, http_test, dry_run):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
+@click.option('--with-tests', is_flag=True, default=False,
+              help='Generate pytest test file')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Preview changes without creating files')
 @click.option('--auto-migrate', is_flag=True, default=False,
               help='Automatically create and apply database migration')
-def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
+def generate_crud(path, name, operations, http_test, with_tests, dry_run, auto_migrate):
     """
     Generate a full CRUD route.
 
@@ -341,6 +355,10 @@ def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
                 tests_dir = Path.cwd() / "tests"
                 clean_path = path.strip('/').replace('/', '_')
                 click.secho(f"\nWould create: {tests_dir / f'{clean_path}.http'}", fg='cyan')
+            if with_tests:
+                tests_dir = Path.cwd() / "tests"
+                clean_path = path.strip('/').replace('/', '_')
+                click.secho(f"\nWould create: {tests_dir / f'test_{clean_path}.py'}", fg='cyan')
             if auto_migrate:
                 click.secho(f"\nWould run:", fg='blue')
                 click.secho(f"  1. reroute db migrate -m 'Add {name} CRUD'", fg='white')
@@ -369,6 +387,12 @@ def generate_crud(path, name, operations, http_test, dry_run, auto_migrate):
             http_file = _generate_http_test_file(path, name, 'crud')
             click.secho(f"[OK] HTTP test created: ", fg='green', bold=True, nl=False)
             click.secho(f"{http_file}", fg='cyan')
+
+        # Generate pytest test file if requested
+        if with_tests:
+            test_file = _generate_pytest_test_file(path, name, operations_list, 'crud')
+            click.secho(f"[OK] Test file created: ", fg='green', bold=True, nl=False)
+            click.secho(f"{test_file}", fg='cyan')
 
         # Auto-migrate: create and apply database migration
         if auto_migrate:
@@ -494,6 +518,7 @@ def create():
     - route: Create a new route
     - crud: Create a CRUD route with full operations
     - model: Create a Pydantic model for data validation
+    - websocket: Create a WebSocket route
     """
     pass
 
@@ -510,9 +535,11 @@ def create():
               help='HTTP methods (comma-separated). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
+@click.option('--with-tests', is_flag=True, default=False,
+              help='Generate pytest test file')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Preview changes without creating files')
-def create_route(path, name, methods, http_test, dry_run):
+def create_route(path, name, methods, http_test, with_tests, dry_run):
     """
     Create a new route file.
 
@@ -527,7 +554,7 @@ def create_route(path, name, methods, http_test, dry_run):
     # Call the same logic as generate_route
     from click import Context
     ctx = Context(generate_route)
-    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test, dry_run=dry_run)
+    ctx.invoke(generate_route, path=path, name=name, methods=methods, http_test=http_test, with_tests=with_tests, dry_run=dry_run)
 
 
 @create.command(name='crud')
@@ -541,11 +568,13 @@ def create_route(path, name, methods, http_test, dry_run):
               help='CRUD operations (comma-separated: CREATE,READ,UPDATE,DELETE). If not provided, interactive selection will be shown.')
 @click.option('--http-test', is_flag=True, default=False,
               help='Generate HTTP test file')
+@click.option('--with-tests', is_flag=True, default=False,
+              help='Generate pytest test file')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Preview changes without creating files')
 @click.option('--auto-migrate', is_flag=True, default=False,
               help='Automatically create and apply database migration')
-def create_crud(path, name, operations, http_test, dry_run, auto_migrate):
+def create_crud(path, name, operations, http_test, with_tests, dry_run, auto_migrate):
     """
     Create a full CRUD route.
 
@@ -557,11 +586,12 @@ def create_crud(path, name, operations, http_test, dry_run, auto_migrate):
         reroute create crud --path /users --name User
         reroute create crud --path /posts --dry-run
         reroute create crud --path /products --auto-migrate
+        reroute create crud --path /items --with-tests
     """
     # Call the same logic as generate_crud
     from click import Context
     ctx = Context(generate_crud)
-    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test, dry_run=dry_run, auto_migrate=auto_migrate)
+    ctx.invoke(generate_crud, path=path, name=name, operations=operations, http_test=http_test, with_tests=with_tests, dry_run=dry_run, auto_migrate=auto_migrate)
 
 
 @create.command(name='dbmodel')
@@ -847,6 +877,140 @@ def create_auth(method):
         sys.exit(1)
 
 
+@create.command(name='websocket')
+@click.option('--path', default=None,
+              callback=validate_route_path,
+              help='WebSocket path (e.g., /chat or /ws/notifications)')
+@click.option('--name', default=None,
+              help='Name for the WebSocket class (auto-generated from path if not provided)')
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Preview changes without creating files')
+def create_websocket(path, name, dry_run):
+    """
+    Create a WebSocket route.
+
+    Creates a real-time bidirectional WebSocket communication route.
+
+    Examples:
+        reroute create websocket
+        reroute create websocket --path /chat
+        reroute create websocket --path /ws/notifications --name NotificationWebSocket
+    """
+    click.secho("\n" + "="*50, fg='cyan', bold=True)
+    click.secho("Generating WebSocket Route", fg='cyan', bold=True)
+    click.secho("="*50 + "\n", fg='cyan', bold=True)
+
+    try:
+        # Validate we're in a REROUTE project
+        if not is_reroute_project():
+            click.secho("[ERROR] Not in a REROUTE project directory!", fg='red', bold=True)
+            click.secho("Run 'reroute init' first to create a project.", fg='yellow')
+            sys.exit(1)
+
+        # Prompt for path if not provided
+        if path is None:
+            path = inquirer.text(
+                message="WebSocket path (e.g., /chat or /ws/notifications):",
+                validate=validate_path_realtime,
+                invalid_message="Invalid path (must start with /, no reserved names like os/sys)"
+            ).execute()
+
+        # Auto-generate name from path if not provided
+        if name is None:
+            auto_generated_name = auto_name_from_path(path)
+
+            # Ask for confirmation
+            use_auto_name = inquirer.confirm(
+                message=f'Use generated name "{auto_generated_name}WebSocket"?',
+                default=True
+            ).execute()
+
+            if use_auto_name:
+                name = auto_generated_name
+                click.secho(f"\nFinal WebSocket Name: {name}", fg='green', bold=True)
+            else:
+                def validate_custom_name(text):
+                    if not text or not text.strip():
+                        return False
+                    text = text.strip()
+                    text_no_underscore = text.lstrip('_')
+                    if not text_no_underscore:
+                        return False
+                    if not text_no_underscore[0].isalpha():
+                        return False
+                    if not re.match(r'^[a-zA-Z0-9_-]+$', text):
+                        return False
+                    return True
+
+                name = inquirer.text(
+                    message="Enter your custom WebSocket name:",
+                    validate=validate_custom_name,
+                    invalid_message="Invalid name. Must start with a letter and contain only letters, numbers, dashes, underscores."
+                ).execute()
+                click.secho(f"\nFinal WebSocket Name: {name}", fg='green', bold=True)
+
+        # Prepare class name
+        class_name = to_class_name(name)
+        if not class_name.endswith("WebSocket"):
+            class_name = class_name + "WebSocket"
+
+        # Calculate route directory path
+        routes_dir = Path.cwd() / "app" / "routes"
+        route_path_clean = path.strip('/')
+        route_dir = routes_dir / Path(*route_path_clean.split('/')) if route_path_clean else routes_dir
+        route_file = route_dir / "page.py"
+
+        # Check if file already exists
+        if route_file.exists():
+            click.secho(f"\n[ERROR] Route already exists: {route_file}", fg='red', bold=True)
+            click.secho("Delete the existing file or choose a different path.", fg='yellow')
+            sys.exit(1)
+
+        # Render template
+        template = jinja_env.get_template('routes/websocket.py.j2')
+        content = template.render(
+            class_name=class_name,
+            websocket_path=path,
+        )
+
+        # Dry-run mode
+        if dry_run:
+            click.secho("\n[DRY-RUN] Preview of changes (no files will be created):", fg='yellow', bold=True)
+            click.secho("=" * 50, fg='yellow')
+            click.secho(f"\nWould create: {route_file}", fg='cyan')
+            click.secho(f"  Path: {path}", fg='magenta')
+            click.secho(f"  Class: {class_name}", fg='green')
+            click.secho("\n[TIP] Remove --dry-run flag to create files.", fg='blue')
+            click.echo()
+            return
+
+        # Create directory and write file
+        route_dir.mkdir(parents=True, exist_ok=True)
+        route_file.write_text(content)
+
+        click.secho(f"[OK] WebSocket route created: ", fg='green', bold=True, nl=False)
+        click.secho(f"{route_file}", fg='cyan')
+        click.secho(f"     Path: ", fg='blue', nl=False)
+        click.secho(f"{path}", fg='magenta', bold=True)
+        click.secho(f"     Class: ", fg='blue', nl=False)
+        click.secho(f"{class_name}", fg='green', bold=True)
+
+        click.secho(f"\n[TIP] Import with: ", fg='blue', nl=False)
+        click.secho(f"from app.routes.{route_path_clean.replace('/', '.')} import {class_name}", fg='cyan')
+
+        click.secho(f"\n[NOTE] WebSocket routes require adapter support.", fg='yellow')
+        click.secho("       - FastAPI: Fully supported via native WebSocket")
+        click.secho("       - Flask: Requires Flask-SocketIO or similar")
+
+        click.echo()
+
+    except Exception as e:
+        click.secho(f"\n[ERROR] Failed to generate WebSocket route: {e}", fg='red', bold=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
 # Helper functions
 
 def _generate_http_test_file(path: str, name: str, template_type: str) -> Path:
@@ -963,3 +1127,51 @@ def _run_auto_migrate(resource_name: str) -> bool:
     except Exception as e:
         click.secho(f"  [ERROR] Migration failed: {e}", fg='red')
         return False
+
+
+def _generate_pytest_test_file(path: str, name: str, methods: list, template_type: str) -> Path:
+    """
+    Generate pytest test file for a route.
+
+    Args:
+        path: Route path
+        name: Route name
+        methods: List of HTTP methods
+        template_type: 'route' or 'crud'
+
+    Returns:
+        Path to created test file
+    """
+    # Create tests directory if it doesn't exist
+    tests_dir = Path.cwd() / "tests"
+    tests_dir.mkdir(exist_ok=True)
+
+    # Create __init__.py if it doesn't exist
+    init_file = tests_dir / "__init__.py"
+    if not init_file.exists():
+        init_file.write_text('"""Tests package"""\n')
+
+    # Clean path for filename
+    clean_path = path.strip('/').replace('/', '_')
+    test_filename = f"test_{clean_path}.py"
+
+    # Render template
+    if template_type == 'crud':
+        template = jinja_env.get_template('tests/test_crud.py.j2')
+        content = template.render(
+            resource_name=name.lower(),
+            route_path=path if path.startswith('/') else f'/{path}',
+        )
+    else:
+        template = jinja_env.get_template('tests/test_route.py.j2')
+        content = template.render(
+            route_name=name,
+            route_path=path if path.startswith('/') else f'/{path}',
+            methods=methods,
+        )
+
+    # Write test file
+    test_file = tests_dir / test_filename
+    test_file.write_text(content)
+
+    return test_file

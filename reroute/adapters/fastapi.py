@@ -7,14 +7,15 @@ Integrates REROUTE's file-based routing with FastAPI.
 import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Type, get_type_hints
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Query, Header, Body, Cookie, Form, File
+from fastapi.params import ParamTypes
+from fastapi.params import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from reroute.core.router import Router
 from reroute.config import Config
-from reroute.params import Query, Path as PathParam, Header, Body, Cookie, Form, File, ParamBase
 from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
 
 
@@ -334,45 +335,60 @@ class FastAPIAdapter:
             # Get the default value (which should be our ParamBase instance)
             default_value = param.default
 
-            # Check if this is a REROUTE parameter injection
-            if isinstance(default_value, Query):
+            # Skip if no default value (not a REROUTE/FastAPI param)
+            if default_value is inspect.Parameter.empty:
+                continue
+
+            # Check if this is a FastAPI parameter injection by checking for the 'in_' attribute
+            if not hasattr(default_value, 'in_'):
+                # Not a FastAPI param, skip
+                continue
+
+            # Extract based on parameter location
+            param_in = getattr(default_value, 'in_', None)
+
+            if param_in == ParamTypes.query:
                 # Extract from query parameters
                 value = query_params.get(param_name)
-                if value is None and default_value.default is not ...:
-                    value = default_value.default
-                elif value is None and default_value.required:
-                    raise ValueError(f"Required query parameter '{param_name}' is missing")
+                # Check if value is missing (None or not provided)
+                if value is None or (hasattr(request.query_params, 'getlist') and param_name not in request.query_params):
+                    # For required params, raise error if missing
+                    if default_value.is_required():
+                        raise ValueError(f"Required query parameter '{param_name}' is missing")
+                    # For optional params, use default if available
+                    if hasattr(default_value, 'default') and default_value.default is not ...:
+                        value = default_value.default
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, PathParam):
+            elif param_in == ParamTypes.path:
                 # Extract from path parameters
                 value = path_params.get(param_name)
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required path parameter '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Header):
+            elif param_in == ParamTypes.header:
                 # Extract from headers (case-insensitive)
                 header_key = param_name.replace('_', '-')
                 value = headers.get(header_key.lower())
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required header '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Cookie):
+            elif param_in == ParamTypes.cookie:
                 # Extract from cookies
                 value = cookies.get(param_name)
-                if value is None and default_value.default is not ...:
+                if value is None and hasattr(default_value, 'default') and default_value.default is not ...:
                     value = default_value.default
-                elif value is None and default_value.required:
+                elif value is None and default_value.is_required():
                     raise ValueError(f"Required cookie '{param_name}' is missing")
                 extracted_params[param_name] = value
 
-            elif isinstance(default_value, Body):
+            elif param_in == ParamTypes.body:
                 # Extract from request body
                 try:
                     body_data = await request.json()
@@ -388,36 +404,39 @@ class FastAPIAdapter:
 
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if default_value.required:
+                    if default_value.is_required():
                         raise ValueError(f"Invalid request body for parameter '{param_name}': {str(e)}")
-                    extracted_params[param_name] = default_value.default if default_value.default is not ... else None
+                    default = getattr(default_value, 'default', ...)
+                    extracted_params[param_name] = default if default is not ... else None
 
-            elif isinstance(default_value, Form):
+            elif param_in == ParamTypes.formData:
                 # Extract from form data
                 try:
                     form_data = await request.form()
                     value = form_data.get(param_name)
-                    if value is None and default_value.default is not ...:
-                        value = default_value.default
-                    elif value is None and default_value.required:
+                    default = getattr(default_value, 'default', ...)
+                    if value is None and default is not ...:
+                        value = default
+                    elif value is None and default_value.is_required():
                         raise ValueError(f"Required form field '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
                     if default_value.required:
                         raise ValueError(f"Invalid form data for parameter '{param_name}': {str(e)}")
 
-            elif isinstance(default_value, File):
+            elif param_in == ParamTypes.file:
                 # Extract file upload
                 try:
                     form_data = await request.form()
                     value = form_data.get(param_name)
-                    if value is None and default_value.default is not ...:
-                        value = default_value.default
-                    elif value is None and default_value.required:
+                    default = getattr(default_value, 'default', ...)
+                    if value is None and default is not ...:
+                        value = default
+                    elif value is None and default_value.is_required():
                         raise ValueError(f"Required file '{param_name}' is missing")
                     extracted_params[param_name] = value
                 except Exception as e:
-                    if default_value.required:
+                    if default_value.is_required():
                         raise ValueError(f"Invalid file upload for parameter '{param_name}': {str(e)}")
 
         return extracted_params
@@ -455,40 +474,127 @@ class FastAPIAdapter:
         else:
             full_path = path
 
-        async def fastapi_handler(request: Request):
+        # Extract path parameter names from URL
+        import re
+        path_param_names = set(re.findall(r'\{([^}]+)\}', full_path))
+
+        # Capture variables for the closure
+        _handler = handler
+        _route_instance = route_instance
+        _path_param_names = path_param_names
+        _self = self
+
+        # Build function signature with ALL parameters from handler
+        sig = inspect.signature(handler)
+        params_list = []
+        annotations = {"request": Request}
+
+        # Import FastAPI's native Path for path parameters
+        from fastapi import Path as FastAPIPath
+
+        # Process ALL parameters from handler signature (except 'self')
+        for param_name, param in sig.parameters.items():
+            if param_name == 'self':
+                continue  # Skip self parameter
+
+            param_type = param.annotation if param.annotation != inspect.Parameter.empty else str
+            default_val = param.default
+
+            # Check if this is a path parameter (from URL)
+            if param_name in path_param_names:
+                # It's a path parameter - use FastAPI Path
+                # If user already provided FastAPI Path, use it directly
+                if hasattr(default_val, '__class__') and default_val.__class__.__module__:
+                    module_name = default_val.__class__.__module__
+                    if 'fastapi' in module_name:
+                        # User provided FastAPI Path - use it directly
+                        fastapi_path = default_val
+                    else:
+                        # Create default FastAPI Path
+                        fastapi_path = FastAPIPath(..., description=f"{param_name}")
+                else:
+                    # No default provided - create FastAPI Path
+                    fastapi_path = FastAPIPath(..., description=f"{param_name}")
+
+                params_list.append(
+                    inspect.Parameter(
+                        name=param_name,
+                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        annotation=param_type,
+                        default=fastapi_path
+                    )
+                )
+                annotations[param_name] = param_type
+
+            # Check if it has a FastAPI parameter default (Query, Body, Header, etc.)
+            elif default_val is not inspect.Parameter.empty:
+                # Check if it's already a FastAPI parameter class
+                if hasattr(default_val, '__class__') and default_val.__class__.__module__:
+                    module_name = default_val.__class__.__module__
+                    if 'fastapi' in module_name:
+                        # It's already a FastAPI parameter - use it directly
+                        params_list.append(
+                            inspect.Parameter(
+                                name=param_name,
+                                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                                annotation=param_type,
+                                default=default_val
+                            )
+                        )
+                        annotations[param_name] = param_type
+
+        # Add request parameter FIRST (before params with defaults)
+        # Python requires parameters without defaults to come first
+        params_list.insert(0,
+            inspect.Parameter(
+                name='request',
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=Request,
+                default=inspect.Parameter.empty
+            )
+        )
+
+        # Create the wrapper function that accepts ALL parameters
+        async def fastapi_handler(**kwargs):
+            """FastAPI endpoint handler with all parameters."""
             try:
-                # Call before_request hook if exists
-                if route_instance and hasattr(route_instance, 'before_request'):
-                    before_result = route_instance.before_request()
-                    # Handle async before_request hooks
+                # Extract request from kwargs
+                request_obj = kwargs.pop('request')
+
+                # FastAPI has already extracted all parameters (Path, Query, Header, Body, Cookie, Form, File)
+                # They're all in kwargs - just pass them through to the actual handler
+                final_params = kwargs
+
+                # Call before_request hook
+                if _route_instance and hasattr(_route_instance, 'before_request'):
+                    before_result = _route_instance.before_request()
                     if inspect.iscoroutine(before_result):
                         before_result = await before_result
                     if before_result is not None:
                         return JSONResponse(content=before_result)
 
-                # Extract parameters from request based on handler signature
-                params = await self._extract_request_data(request, handler)
-
-                # Call the actual handler with extracted parameters
-                # Check if handler is async and await accordingly
-                if inspect.iscoroutinefunction(handler):
-                    result = await handler(**params)
+                # Call the actual handler
+                if inspect.iscoroutinefunction(_handler):
+                    result = await _handler(**final_params)
                 else:
-                    result = handler(**params)
+                    result = _handler(**final_params)
 
-                # Call after_request hook if exists
-                if route_instance and hasattr(route_instance, 'after_request'):
-                    result = route_instance.after_request(result)
-                    # Handle async after_request hooks
+                # Call after_request hook
+                if _route_instance and hasattr(_route_instance, 'after_request'):
+                    result = _route_instance.after_request(result)
                     if inspect.iscoroutine(result):
                         result = await result
 
-                return JSONResponse(content=result)
+                # If result is already a Response object, return it directly
+                if isinstance(result, Response):
+                    return result
+                else:
+                    return JSONResponse(content=result)
 
             except Exception as e:
-                # Call error hook if exists
-                if route_instance and hasattr(route_instance, 'on_error'):
-                    error_response = route_instance.on_error(e)
+                # Call error hook
+                if _route_instance and hasattr(_route_instance, 'on_error'):
+                    error_response = _route_instance.on_error(e)
                     return JSONResponse(content=error_response, status_code=500)
 
                 # Default error response
@@ -497,6 +603,10 @@ class FastAPIAdapter:
                     status_code=500
                 )
 
+        # Set the signature and annotations
+        fastapi_handler.__signature__ = inspect.Signature(params_list)
+        fastapi_handler.__annotations__ = annotations
+
         # Copy docstring from original handler to wrapper for FastAPI docs
         if handler.__doc__:
             fastapi_handler.__doc__ = handler.__doc__
@@ -504,23 +614,17 @@ class FastAPIAdapter:
         # Extract summary from docstring for FastAPI
         summary = handler.__doc__.strip() if handler.__doc__ else None
 
-        # Register with FastAPI using the appropriate method with summary and tags
-        tags = [tag] if tag else None
+        # Build route kwargs
+        route_kwargs = {
+            "path": full_path,
+            "endpoint": fastapi_handler,
+            "methods": [method],
+            "summary": summary,
+            "tags": [tag] if tag else None,
+        }
 
-        if method == "GET":
-            self.app.get(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "POST":
-            self.app.post(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "PUT":
-            self.app.put(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "DELETE":
-            self.app.delete(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "PATCH":
-            self.app.patch(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "HEAD":
-            self.app.head(full_path, summary=summary, tags=tags)(fastapi_handler)
-        elif method == "OPTIONS":
-            self.app.options(full_path, summary=summary, tags=tags)(fastapi_handler)
+        # Register the route - FastAPI will auto-generate schema from actual parameters
+        self.app.add_api_route(**route_kwargs)
 
         if self.config.VERBOSE_LOGGING:
             print(f"  {method:7} {full_path}")

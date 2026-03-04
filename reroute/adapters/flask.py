@@ -22,6 +22,7 @@ except ImportError:
 
 import click
 from reroute.core.router import Router
+from reroute.core.websocket import WebSocketRoute
 from reroute.config import Config
 from reroute.params import Query, Path as PathParam, Header, Body, Cookie, Form, File, ParamBase
 from reroute.security import SecurityHeadersConfig, SecurityHeadersFactory, detect_environment
@@ -364,15 +365,24 @@ class FlaskAdapter:
         This method:
         1. Discovers routes using REROUTE Router
         2. Loads route handlers
-        3. Registers each route with Flask
+        3. Registers each route with Flask (HTTP routes only, WebSocket skipped)
         """
         # Discover and load routes
         self.router.load_routes()
+
+        websocket_count = 0
 
         # Register all routes
         for route_path, route_data in self.router.routes.items():
             handlers = route_data["handlers"]
             route_instance = route_data.get("instance")
+
+            # Check if this is a WebSocket route (skip for Flask)
+            if route_instance and isinstance(route_instance, WebSocketRoute):
+                websocket_count += 1
+                if self.config.VERBOSE_LOGGING:
+                    click.secho(f"  WS SKIP {route_path} (Flask WebSocket requires Flask-SocketIO)", fg='yellow')
+                continue
 
             # Register each HTTP method for this route
             for method, handler in handlers.items():
@@ -383,12 +393,18 @@ class FlaskAdapter:
                     route_instance
                 )
 
+        if websocket_count > 0:
+            click.secho(f"\n[WARNING] {websocket_count} WebSocket route(s) skipped", fg='yellow')
+            click.secho("          Flask does not support WebSocket natively.", fg='yellow')
+            click.secho("          Install Flask-SocketIO: pip install flask-socketio", fg='yellow')
+            click.secho("          Or use FastAPI for full WebSocket support.", fg='yellow')
+
         # Register Spectree (enables /apidoc/* endpoints)
         if self.spec:
             self.spec.register(self.app)
 
         if self.config.VERBOSE_LOGGING:
-            print(f"\n[OK] Registered {len(self.router.routes)} REROUTE routes with Flask")
+            print(f"\n[OK] Registered {len(self.router.routes) - websocket_count} REROUTE routes with Flask")
             print(f"\nAll registered routes:")
             for rule in self.app.url_map.iter_rules():
                 print(f"  {rule.rule} -> {rule.methods}")

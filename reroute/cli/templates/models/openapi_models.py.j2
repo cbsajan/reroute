@@ -1,0 +1,12 @@
+{# Auto-generated Pydantic models from OpenAPI specification #}
+
+from pydantic import BaseModel, EmailStr, Field, AnyUrl
+from typing import Optional, List, Literal, Any
+from datetime import datetime, date
+from uuid import UUID
+
+
+{% for model_code in models %}
+{{ model_code }}
+
+{% endfor %}

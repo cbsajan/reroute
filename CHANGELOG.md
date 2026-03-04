@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-03-01
+
+### Added
+- **OpenAPI Import** - Contract-first development support
+  - `reroute import openapi.yaml` - Generate routes from OpenAPI 3.0+ specifications
+  - `reroute import sync` - Generate OpenAPI spec from existing routes (reverse sync)
+  - Automatic Pydantic model generation from OpenAPI schemas
+  - Support for both JSON and YAML spec formats
+  - Route generation with proper file structure
+  - Optional test file generation with `--generate-tests` flag
+  - Dry-run mode with `--dry-run` flag
+
+- **WebSocket Support** - Real-time bidirectional communication
+  - `WebSocketRoute` base class with lifecycle hooks (`on_connect`, `on_message`, `on_disconnect`, `on_error`)
+  - `WebSocketConnectionManager` for connection management and broadcasting
+  - `reroute create websocket --path /chat` - CLI command to generate WebSocket routes
+  - Native FastAPI WebSocket support
+  - Flask WebSocket detection with helpful message (requires Flask-SocketIO)
+  - Group/room support with `join_group`, `leave_group`, `send_to_group`
+  - Connection tracking and management
+
+- **Test Generation** - Automatic pytest test file creation
+  - `--with-tests` flag for `reroute create route` and `reroute create crud`
+  - Auto-generated test templates with assertions
+  - CRUD-specific test patterns (create, read, update, delete, validation)
+  - Parametrized tests for multiple data sets
+  - Proper pytest fixtures and client setup
+
+- **New Optional Dependencies**
+  - `openapi` extras: `pyyaml>=6.0`, `jsonschema>=4.0`
+  - `websocket` extras: `websockets>=11.0`, `python-socketio>=5.0`
+
+### Changed
+- WebSocket routes automatically detected and handled differently from HTTP routes
+- Router now stores route type (`http` or `websocket`) for proper adapter handling
+- FastAPI adapter registers WebSocket routes with native support
+- Flask adapter skips WebSocket routes with helpful warning message
+
+### Templates
+- `routes/openapi_route.py.j2` - OpenAPI-generated route template
+- `routes/websocket.py.j2` - WebSocket route template with connection management
+- `models/openapi_models.py.j2` - Pydantic models from OpenAPI schemas
+- `tests/test_route.py.j2` - Basic route test template
+- `tests/test_crud.py.j2` - CRUD operation test template
+
 ## [0.2.4] - 2026-01-03
 
 ### Fixed

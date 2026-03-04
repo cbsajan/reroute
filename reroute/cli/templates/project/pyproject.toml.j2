@@ -9,7 +9,7 @@ requires-python = ">=3.8"
 authors = [
     {name = "Your Name", email = "you@example.com"}
 ]
-keywords = ["reroute", "{{ framework }}", "api"]
+keywords = ["reroute", "fastapi", "api"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,23 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    {% if framework == 'fastapi' -%}
     "Framework :: FastAPI",
-    {% elif framework == 'flask' -%}
-    "Framework :: Flask",
-    {% endif -%}
 ]
 
 dependencies = [
     "reroute",
-    {% if framework == 'fastapi' -%}
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.20.0",
-    {% elif framework == 'flask' -%}
-    "flask>=2.0.0",
-    "flask-cors>=4.0.0",
-    "spectree>=1.2.0",
-    {% endif -%}
     {% if db_type -%}
     {% if db_type == 'postgresql' -%}
     "psycopg2-binary>=2.9.0",

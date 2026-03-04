@@ -1,10 +1,12 @@
 """
-{{ route_name }} CRUD Route
+{{ route_name | capitalize }} CRUD Route
 
 Full CRUD implementation for {{ resource_name }}.
 """
 
 from reroute import RouteBase
+from fastapi import Path, Query, Body
+from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
 
 
@@ -14,10 +16,15 @@ class {{ class_name }}(RouteBase):
 
     Endpoints:
     - GET    {{ route_path }}        - List all {{ resource_name }}
-    - GET    {{ route_path }}/:id    - Get single {{ resource_name }}
+    - GET    {{ route_path }}/{id}   - Get single {{ resource_name }}
     - POST   {{ route_path }}        - Create new {{ resource_name }}
-    - PUT    {{ route_path }}/:id    - Update {{ resource_name }}
-    - DELETE {{ route_path }}/:id    - Delete {{ resource_name }}
+    - PUT    {{ route_path }}/{id}   - Update {{ resource_name }}
+    - DELETE {{ route_path }}/{id}   - Delete {{ resource_name }}
+
+    Note: For individual item operations, create a separate route in a [id] subfolder.
+    The [id] folder will be automatically converted to {id} path parameter.
+
+    Alternative: Use _id subfolder for private/explicit routes (also supported).
     """
 
     def __init__(self):
@@ -40,37 +47,28 @@ class {{ class_name }}(RouteBase):
         #     return {"error": "Unauthorized"}, 401
         pass
 
-    def get(self, id: Optional[int] = None):
+    def get(self, limit: int = Query(10, description="Maximum results"), offset: int = Query(0, description="Skip results")) -> JSONResponse:
         """
-        GET handler - Retrieve {{ resource_name }}.
+        GET handler - List all {{ resource_name }}.
 
         Args:
-            id: Optional ID to get single item
+            limit: Maximum number of results to return
+            offset: Number of results to skip
 
         Returns:
-            Single item or list of all items
+            List of all items with pagination
         """
-        if id is not None:
-            # Get single item
-            item = self._find_by_id(id)
-            if not item:
-                return {
-                    "error": "{{ resource_name }} not found",
-                    "id": id
-                }, 404
-            return {
-                "data": item,
-                "message": "{{ resource_name }} retrieved successfully"
-            }
-
-        # Get all items
-        return {
-            "data": self.items,
+        # Apply pagination
+        paginated = self.items[offset:offset + limit]
+        return JSONResponse(content={
+            "data": paginated,
             "count": len(self.items),
+            "limit": limit,
+            "offset": offset,
             "message": "{{ resource_name }} list retrieved successfully"
-        }
+        })
 
-    def post(self, data: Dict[str, Any]):
+    def post(self, data: Dict[str, Any] = Body(..., description="Item data to create")) -> JSONResponse:
         """
         POST handler - Create new {{ resource_name }}.
 
@@ -84,10 +82,13 @@ class {{ class_name }}(RouteBase):
         required_fields = ["name"]  # TODO: Update with actual fields
         for field in required_fields:
             if field not in data:
-                return {
-                    "error": f"Missing required field: {field}",
-                    "required": required_fields
-                }, 400
+                return JSONResponse(
+                    content={
+                        "error": f"Missing required field: {field}",
+                        "required": required_fields
+                    },
+                    status_code=400
+                )
 
         # Create new item
         new_item = {
@@ -97,61 +98,70 @@ class {{ class_name }}(RouteBase):
         self.items.append(new_item)
         self.next_id += 1
 
-        return {
-            "data": new_item,
-            "message": "{{ resource_name }} created successfully"
-        }, 201
+        return JSONResponse(
+            content={
+                "data": new_item,
+                "message": "{{ resource_name }} created successfully"
+            },
+            status_code=201
+        )
 
-    def put(self, id: int, data: Dict[str, Any]):
+    def put(self, id: int = Path(..., description="Item ID to update"), data: Dict[str, Any] = Body(..., description="Updated data")) -> JSONResponse:
         """
         PUT handler - Update existing {{ resource_name }}.
 
         Args:
-            id: ID of item to update
-            data: Update data
+            id: ID of item to update (from URL path)
+            data: Update data (from request body)
 
         Returns:
             Updated item
         """
         item = self._find_by_id(id)
         if not item:
-            return {
-                "error": "{{ resource_name }} not found",
-                "id": id
-            }, 404
+            return JSONResponse(
+                content={
+                    "error": "{{ resource_name }} not found",
+                    "id": id
+                },
+                status_code=404
+            )
 
         # Update item
         item.update(data)
 
-        return {
+        return JSONResponse(content={
             "data": item,
             "message": "{{ resource_name }} updated successfully"
-        }
+        })
 
-    def delete(self, id: int):
+    def delete(self, id: int = Path(..., description="Item ID to delete")) -> JSONResponse:
         """
         DELETE handler - Delete {{ resource_name }}.
 
         Args:
-            id: ID of item to delete
+            id: ID of item to delete (from URL path)
 
         Returns:
             Deletion confirmation
         """
         item = self._find_by_id(id)
         if not item:
-            return {
-                "error": "{{ resource_name }} not found",
-                "id": id
-            }, 404
+            return JSONResponse(
+                content={
+                    "error": "{{ resource_name }} not found",
+                    "id": id
+                },
+                status_code=404
+            )
 
         # Delete item
         self.items = [i for i in self.items if i["id"] != id]
 
-        return {
+        return JSONResponse(content={
             "message": "{{ resource_name }} deleted successfully",
             "id": id
-        }
+        })
 
     def _find_by_id(self, id: int) -> Optional[Dict[str, Any]]:
         """
@@ -178,7 +188,7 @@ class {{ class_name }}(RouteBase):
         # response['X-Processed-By'] = 'REROUTE'
         return response
 
-    def on_error(self, error: Exception):
+    def on_error(self, error: Exception) -> JSONResponse:
         """
         Error handling hook.
 
@@ -188,9 +198,9 @@ class {{ class_name }}(RouteBase):
         Returns:
             Error response
         """
-        return {
+        return JSONResponse(content={
             "error": str(error),
             "type": type(error).__name__,
             "route": "{{ route_path }}",
             "resource": "{{ resource_name }}"
-        }
+        })
