@@ -127,6 +127,8 @@ Framework defaults are hardcoded in templates (not configurable):
 - **Auth template**: Database required (must select one)
 
 
+## [0.3.0] - 2026-03-04
+
 ## [0.2.5] - 2026-03-01
 
 ### Added
@@ -460,6 +462,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-04
+
 ## [0.2.4] - 2026-01-03
 
 ## [0.2.3] - 2026-01-03
@@ -675,3 +679,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.2.4...HEAD
 [0.2.4]: https://github.com/cbsajan/reroute/compare/v...v0.2.4
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/cbsajan/reroute/compare/v...v0.3.0
