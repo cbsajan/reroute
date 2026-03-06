@@ -94,6 +94,8 @@ None
 - Tests for template registry
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-03-06
 ### Cookiecutter Template System Refactoring
 
 This release focuses on cookiecutter template system refactoring. Existing CLI functionality remains unchanged.
@@ -462,6 +464,8 @@ class AppConfig(Config):
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-06
+
 ## [0.3.0] - 2026-03-04
 
 ## [0.2.4] - 2026-01-03
@@ -682,3 +686,6 @@ class AppConfig(Config):
 
 [unreleased]: https://github.com/cbsajan/reroute/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/cbsajan/reroute/compare/v...v0.3.0
+
+[unreleased]: https://github.com/cbsajan/reroute/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/cbsajan/reroute/compare/v...v0.4.0
