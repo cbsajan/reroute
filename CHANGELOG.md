@@ -94,6 +94,38 @@ None
 - Tests for template registry
 
 ## [Unreleased]
+### Cookiecutter Template System Refactoring
+
+This release focuses on cookiecutter template system refactoring. Existing CLI functionality remains unchanged.
+
+**What's New:**
+- **Template Requirements System** - Templates declare `_requirements` metadata in `cookiecutter.json` to control CLI prompts
+- **Minimal 7-Field Schema** - Removed framework defaults from user-facing configuration
+- **Author Prompts** - CLI now collects author name/email with git config defaults
+- **Official Templates** - Migrated to `github.com/rerouteorg/`
+
+**New Template Schema:**
+```json
+{
+  "project_name": "myapi",
+  "description": "My API",
+  "author_name": "Your Name",
+  "author_email": "you@example.com",
+  "include_tests": true,
+  "include_database": false,
+  "database_type": "none"
+}
+```
+
+Framework defaults are hardcoded in templates (not configurable):
+- Framework: `fastapi`
+- Host: `0.0.0.0`, Port: `7376`
+- JWT: HS256 algorithm, 30min access tokens, 7-day refresh tokens
+
+**Template Requirements:**
+- **Base template**: No database (prompts skipped)
+- **Auth template**: Database required (must select one)
+
 
 ## [0.2.5] - 2026-03-01
 
