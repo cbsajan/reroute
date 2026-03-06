@@ -107,3 +107,10 @@ test_App/
 examples/dummy/
 nul
 /logsfromgithub.txt
+/cookiecutter-templates/
+
+# Backup files (keep locally but don't push to GitHub)
+reroute/cli/commands/*_old.py
+reroute/cli/commands/*_refactored.py
+reroute/cli/commands/*_before_refactor.py
+

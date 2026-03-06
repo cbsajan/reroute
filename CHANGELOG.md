@@ -5,6 +5,94 @@ All notable changes to REROUTE will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-05
+
+### Breaking Changes - Cookiecutter Template System
+
+REROUTE v0.4.0 is a **breaking change** that migrates from embedded Jinja2 templates to GitHub-hosted Cookiecutter templates.
+
+**Key Changes:**
+1. **Templates no longer bundled** - Templates are now fetched from GitHub repositories
+2. **Internet required** - `reroute init` requires GitHub access to fetch templates
+3. **New `--template` flag** - Explicit template selection required
+4. **Jinja2 removed** - All template generation uses Cookiecutter
+5. **New dependency** - `cookiecutter>=2.1.0` added to core dependencies
+
+### Added
+
+- **Cookiecutter Integration** - Template-based project generation
+  - `--template` flag for explicit template selection
+  - Built-in template registry: `base`, `auth`
+  - Custom GitHub template support: `gh:user/repo`
+  - Template selection UI in interactive mode
+  - All user input via InquirerPy (no Cookiecutter prompts)
+
+- **Official Templates**
+  - **Base Template** (`gh:rerouteorg/reroute-base-template`): Minimal FastAPI project
+  - **Auth Template** (`gh:rerouteorg/reroute-auth-template`): JWT authentication template
+  - Templates versioned independently from REROUTE
+  - Community templates supported
+
+- **Template Documentation**
+  - Complete template system documentation
+  - Custom template creation guide
+  - Template best practices
+  - Migration guide from v0.3.x
+
+### Changed
+
+- **`reroute init` command**
+  - Old: `reroute init myapi` (used embedded templates)
+  - New: `reroute init myapi --template base` (fetches from GitHub)
+  - Template selection UI added
+  - Custom GitHub URL support
+
+- **Dependencies**
+  - Added: `cookiecutter>=2.1.0` (required)
+  - Removed: `jinja2>=3.0.0` (no longer needed)
+  - Package data configuration removed (templates not bundled)
+
+### Migration Guide from v0.3.x
+
+**Old (v0.3.x):**
+```bash
+reroute init myapi
+```
+
+**New (v0.4.0):**
+```bash
+reroute init myapi --template base
+```
+
+**For equivalent results:**
+- `--template base` = old default behavior
+- `--template auth` = old `--auth` flag behavior
+
+### Removed
+
+- **Embedded templates** - `reroute/cli/templates/` directory (kept as backup)
+- **Jinja2 dependency** - No longer needed for template rendering
+- **Template generation code** - ~200 lines of Jinja2 rendering code replaced
+
+### Deprecated
+
+None
+
+### Fixed
+
+None
+
+### Security
+
+None
+
+### Tests
+
+- Added `test_cookiecutter_templates.py` - Template integration tests
+- Tests for local template generation
+- Tests for template content substitution
+- Tests for template registry
+
 ## [Unreleased]
 
 ## [0.2.5] - 2026-03-01

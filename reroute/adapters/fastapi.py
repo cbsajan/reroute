@@ -561,9 +561,40 @@ class FastAPIAdapter:
                 # Extract request from kwargs
                 request_obj = kwargs.pop('request')
 
-                # FastAPI has already extracted all parameters (Path, Query, Header, Body, Cookie, Form, File)
-                # They're all in kwargs - just pass them through to the actual handler
-                final_params = kwargs
+                # Process parameters: FastAPI may pass Body objects instead of validated values
+                # We need to manually extract Body parameters with Pydantic models
+                final_params = {}
+                sig = inspect.signature(_handler)
+                type_hints = get_type_hints(_handler)
+
+                # Import REROUTE's Body class for type checking
+                from reroute.params import Body as RerouteBody
+
+                for param_name, param_value in kwargs.items():
+                    # Get parameter info from handler signature
+                    if param_name in sig.parameters:
+                        param = sig.parameters[param_name]
+                        param_type = type_hints.get(param_name)
+                        param_default = param.default
+
+                        # Check if this is a REROUTE Body parameter with a Pydantic model
+                        is_reroute_body = (
+                            param_default is not inspect.Parameter.empty and
+                            isinstance(param_default, RerouteBody)
+                        )
+
+                        if is_reroute_body and param_type and hasattr(param_type, 'model_validate'):
+                            # Extract and validate JSON body against Pydantic model
+                            try:
+                                body_data = await request_obj.json()
+                                final_params[param_name] = param_type.model_validate(body_data)
+                            except Exception as e:
+                                raise ValueError(f"Invalid request body for '{param_name}': {str(e)}")
+                        else:
+                            # Use the value as-is (already extracted by FastAPI)
+                            final_params[param_name] = param_value
+                    else:
+                        final_params[param_name] = param_value
 
                 # Call before_request hook
                 if _route_instance and hasattr(_route_instance, 'before_request'):
@@ -592,7 +623,15 @@ class FastAPIAdapter:
                     return JSONResponse(content=result)
 
             except Exception as e:
-                # Call error hook
+                # Check if it's a FastAPI HTTPException - use its status code
+                if hasattr(e, 'status_code'):
+                    # FastAPI HTTPException
+                    return JSONResponse(
+                        content={"detail": getattr(e, 'detail', str(e))},
+                        status_code=e.status_code
+                    )
+
+                # Call error hook for other exceptions
                 if _route_instance and hasattr(_route_instance, 'on_error'):
                     error_response = _route_instance.on_error(e)
                     return JSONResponse(content=error_response, status_code=500)

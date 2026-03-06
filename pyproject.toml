@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reroute"
-# Version 0.3.0 - uv-only package manager, Flask removed
-version = "0.3.0"
+# Version 0.4.0 - Cookiecutter template system (breaking change)
+version = "0.4.0"
 description = "File-based routing for Python backend frameworks (FastAPI)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -29,7 +29,7 @@ classifiers = [
 dependencies = [
     "click>=8.0.0",
     "InquirerPy>=0.3.0",
-    "jinja2>=3.0.0",
+    "cookiecutter>=2.1.0",
     "packaging>=21.0",
 ]
 
